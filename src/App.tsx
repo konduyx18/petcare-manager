@@ -17,8 +17,10 @@ function App() {
           {/* Toast notifications */}
           <Toaster position="top-right" richColors />
           
-          {/* React Query DevTools - only visible in development */}
-          <ReactQueryDevtools initialIsOpen={false} />
+          {/* React Query DevTools - only visible on desktop to avoid overlap with mobile bottom nav */}
+          <div className="hidden lg:block">
+            <ReactQueryDevtools initialIsOpen={false} />
+          </div>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

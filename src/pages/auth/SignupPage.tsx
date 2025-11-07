@@ -15,7 +15,17 @@ import { toast } from 'sonner'
 import { Loader2, Mail, User, CheckCircle2, Shield, ArrowLeft } from 'lucide-react'
 
 const signupSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .refine(
+      (email) => {
+        // More permissive regex that allows +, -, _, and other valid email characters
+        const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+        return emailRegex.test(email)
+      },
+      'Please enter a valid email address'
+    ),
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
 })
 
@@ -327,10 +337,12 @@ export default function SignupPage() {
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           {...field}
-                          type="email"
+                          type="text"
+                          inputMode="email"
                           placeholder="you@example.com"
                           className="pl-10"
                           disabled={isLoading}
+                          autoComplete="email"
                         />
                       </div>
                     </FormControl>
