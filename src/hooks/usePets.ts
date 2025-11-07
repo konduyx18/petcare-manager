@@ -97,3 +97,54 @@ export function useCreatePet() {
     },
   })
 }
+
+export function useUpdatePet() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pet> }) => {
+      // @ts-ignore - Supabase types not generated yet
+      const { data, error } = await supabase
+        .from('pets')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as Pet
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      toast.success('Pet updated successfully!')
+    },
+    onError: (error) => {
+      console.error('Error updating pet:', error)
+      toast.error('Failed to update pet')
+    },
+  })
+}
+
+export function useDeletePet() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (petId: string) => {
+      const { error } = await supabase
+        .from('pets')
+        .delete()
+        .eq('id', petId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+    onError: (error) => {
+      console.error('Error deleting pet:', error)
+      toast.error('Failed to delete pet')
+    },
+  })
+}

@@ -5,7 +5,7 @@ import LoginPage from '@/pages/auth/LoginPage'
 import SignupPage from '@/pages/auth/SignupPage'
 import ConfirmPage from '@/pages/auth/ConfirmPage'
 import DashboardPage from '@/pages/DashboardPage'
-import PetsPage from '@/pages/PetsPage'
+import PetsListPage from '@/pages/pets/PetsListPage'
 import HealthPage from '@/pages/HealthPage'
 import SuppliesPage from '@/pages/SuppliesPage'
 import ShopPage from '@/pages/ShopPage'
@@ -60,7 +60,7 @@ const petsRoute = createRoute({
   component: () => (
     <ProtectedRoute>
       <AppLayout>
-        <PetsPage />
+        <PetsListPage />
       </AppLayout>
     </ProtectedRoute>
   ),
