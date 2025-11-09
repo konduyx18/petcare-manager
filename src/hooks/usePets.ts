@@ -75,9 +75,9 @@ export function useCreatePet() {
         photoUrl = await uploadPetPhoto(photo, user.id, pet.id)
         
         // Update pet with photo URL
-        // @ts-ignore - Supabase types not generated yet, update will work at runtime
         const { error: updateError } = await supabase
           .from('pets')
+          // @ts-ignore - Supabase types not generated yet, update will work at runtime
           .update({ photo_url: photoUrl })
           .eq('id', pet.id)
 
@@ -103,9 +103,9 @@ export function useUpdatePet() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Pet> }) => {
-      // @ts-ignore - Supabase types not generated yet
       const { data, error } = await supabase
         .from('pets')
+        // @ts-ignore - Supabase types not generated yet
         .update(updates)
         .eq('id', id)
         .select()
