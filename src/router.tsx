@@ -7,7 +7,8 @@ import ConfirmPage from '@/pages/auth/ConfirmPage'
 import DashboardPage from '@/pages/DashboardPage'
 import PetsListPage from '@/pages/pets/PetsListPage'
 import PetDetailPage from '@/pages/pets/PetDetailPage'
-import HealthPage from '@/pages/HealthPage'
+import HealthHubPage from '@/pages/health/HealthHubPage'
+import VaccinationTrackerPage from '@/pages/health/VaccinationTrackerPage'
 import SuppliesPage from '@/pages/SuppliesPage'
 import ShopPage from '@/pages/ShopPage'
 
@@ -85,7 +86,19 @@ const healthRoute = createRoute({
   component: () => (
     <ProtectedRoute>
       <AppLayout>
-        <HealthPage />
+        <HealthHubPage />
+      </AppLayout>
+    </ProtectedRoute>
+  ),
+})
+
+const vaccinationTrackerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/health/vaccinations',
+  component: () => (
+    <ProtectedRoute>
+      <AppLayout>
+        <VaccinationTrackerPage />
       </AppLayout>
     </ProtectedRoute>
   ),
@@ -125,6 +138,7 @@ const routeTree = rootRoute.addChildren([
   petsRoute,
   petDetailRoute,
   healthRoute,
+  vaccinationTrackerRoute,
   suppliesRoute,
   shopRoute,
 ])

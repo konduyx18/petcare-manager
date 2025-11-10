@@ -55,7 +55,12 @@ export function EditPetDialog({ open, onOpenChange, pet }: EditPetDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-2 border-blue-200 shadow-2xl">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-2 border-blue-200 shadow-2xl"
+        onInteractOutside={(e) => {
+          e.preventDefault() // Prevent closing when clicking outside
+        }}
+      >
         <DialogHeader className="space-y-3 pb-4 border-b border-blue-100">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-blue-400 to-blue-500 rounded-2xl shadow-lg">

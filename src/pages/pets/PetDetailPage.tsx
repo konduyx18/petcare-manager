@@ -10,16 +10,25 @@ import { EditPetDialog } from '@/components/pets/EditPetDialog'
 import { DeletePetDialog } from '@/components/pets/DeletePetDialog'
 import { PetOverview } from '@/components/pets/PetOverview'
 import { AddHealthRecordDialog } from '@/components/health/AddHealthRecordDialog'
+import { EditHealthRecordDialog } from '@/components/health/EditHealthRecordDialog'
+import { DeleteHealthRecordDialog } from '@/components/health/DeleteHealthRecordDialog'
+import { HealthTimeline } from '@/components/health/HealthTimeline'
+import { useHealthRecords } from '@/hooks/useHealthRecords'
 import { ArrowLeft, Edit, Trash2, Calendar, Heart, Package, Plus } from 'lucide-react'
 import { calculateAge, getSpeciesBadgeColor, getSpeciesEmoji } from '@/utils/pet-utils'
+import type { HealthRecord } from '@/hooks/useHealthRecords'
 
 export default function PetDetailPage() {
   const { petId } = useParams({ from: '/pets/$petId' })
   const navigate = useNavigate()
   const { data, isLoading, error } = usePetDetail(petId)
+  const { data: healthRecords } = useHealthRecords(petId)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [addHealthRecordOpen, setAddHealthRecordOpen] = useState(false)
+  const [editHealthRecordOpen, setEditHealthRecordOpen] = useState(false)
+  const [deleteHealthRecordOpen, setDeleteHealthRecordOpen] = useState(false)
+  const [selectedHealthRecord, setSelectedHealthRecord] = useState<HealthRecord | null>(null)
 
   if (isLoading) {
     return <LoadingSkeleton />
@@ -178,7 +187,7 @@ export default function PetDetailPage() {
               <div className="space-y-1">
                 <CardTitle>Health Records</CardTitle>
                 <CardDescription>
-                  Track vaccinations, vet visits, prescriptions, and procedures
+                  Complete medical history for {pet.name}
                 </CardDescription>
               </div>
               <Button onClick={() => setAddHealthRecordOpen(true)} className="gap-2 bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600">
@@ -186,12 +195,34 @@ export default function PetDetailPage() {
                 Add Record
               </Button>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                No health records yet. Click "Add Record" to get started!
-              </p>
-            </CardContent>
           </Card>
+
+          {healthRecords && healthRecords.length > 0 ? (
+            <div className="mt-6">
+              <HealthTimeline
+                records={healthRecords}
+                onEdit={(record) => {
+                  setSelectedHealthRecord(record)
+                  setEditHealthRecordOpen(true)
+                }}
+                onDelete={(recordId) => {
+                  const record = healthRecords.find(r => r.id === recordId)
+                  if (record) {
+                    setSelectedHealthRecord(record)
+                    setDeleteHealthRecordOpen(true)
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <Card className="mt-6 p-12 text-center">
+              <p className="text-gray-600 mb-4">No health records yet for {pet.name}</p>
+              <Button onClick={() => setAddHealthRecordOpen(true)} className="gap-2">
+                <Plus className="mr-2 h-4 w-4" />
+                Add First Record
+              </Button>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="supplies" className="mt-6">
@@ -232,6 +263,22 @@ export default function PetDetailPage() {
         petId={petId}
         petName={pet.name}
       />
+      {selectedHealthRecord && (
+        <>
+          <EditHealthRecordDialog
+            open={editHealthRecordOpen}
+            onOpenChange={setEditHealthRecordOpen}
+            record={selectedHealthRecord}
+            petName={pet.name}
+          />
+          <DeleteHealthRecordDialog
+            open={deleteHealthRecordOpen}
+            onOpenChange={setDeleteHealthRecordOpen}
+            recordId={selectedHealthRecord.id}
+            recordTitle={selectedHealthRecord.title}
+          />
+        </>
+      )}
     </div>
   )
 }
