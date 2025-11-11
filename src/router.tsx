@@ -9,6 +9,7 @@ import PetsListPage from '@/pages/pets/PetsListPage'
 import PetDetailPage from '@/pages/pets/PetDetailPage'
 import HealthHubPage from '@/pages/health/HealthHubPage'
 import VaccinationTrackerPage from '@/pages/health/VaccinationTrackerPage'
+import PrescriptionManagerPage from '@/pages/health/PrescriptionManagerPage'
 import SuppliesPage from '@/pages/SuppliesPage'
 import ShopPage from '@/pages/ShopPage'
 
@@ -104,6 +105,18 @@ const vaccinationTrackerRoute = createRoute({
   ),
 })
 
+const prescriptionManagerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/health/prescriptions',
+  component: () => (
+    <ProtectedRoute>
+      <AppLayout>
+        <PrescriptionManagerPage />
+      </AppLayout>
+    </ProtectedRoute>
+  ),
+})
+
 const suppliesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/supplies',
@@ -139,6 +152,7 @@ const routeTree = rootRoute.addChildren([
   petDetailRoute,
   healthRoute,
   vaccinationTrackerRoute,
+  prescriptionManagerRoute,
   suppliesRoute,
   shopRoute,
 ])

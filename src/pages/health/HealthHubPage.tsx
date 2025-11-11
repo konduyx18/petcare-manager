@@ -11,7 +11,7 @@ import { EditHealthRecordDialog } from '@/components/health/EditHealthRecordDial
 import { DeleteHealthRecordDialog } from '@/components/health/DeleteHealthRecordDialog'
 import { useAllHealthRecords } from '@/hooks/useHealthRecords'
 import { usePets } from '@/hooks/usePets'
-import { Plus, Search, Filter, Syringe } from 'lucide-react'
+import { Plus, Search, Filter, Syringe, Pill } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
@@ -95,7 +95,7 @@ export default function HealthHubPage() {
             {selectedPetId !== 'all' && selectedPet && ` for ${selectedPet.name}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             onClick={() => navigate({ to: '/health/vaccinations' })}
             variant="outline"
@@ -103,7 +103,16 @@ export default function HealthHubPage() {
             size="lg"
           >
             <Syringe className="h-5 w-5" />
-            Vaccination Tracker
+            Vaccinations
+          </Button>
+          <Button
+            onClick={() => navigate({ to: '/health/prescriptions' })}
+            variant="outline"
+            className="gap-2"
+            size="lg"
+          >
+            <Pill className="h-5 w-5" />
+            Prescriptions
           </Button>
           <Button
             onClick={() => setAddDialogOpen(true)}

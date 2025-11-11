@@ -1,20 +1,22 @@
-import { Calendar, dateFnsLocalizer, type Event } from 'react-big-calendar'
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
+import type { Event, View } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { getVaccinationStatus } from '@/utils/vaccination-utils'
+import { Button } from '@/components/ui/button'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useMemo } from 'react'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
-
-const locales = {
-  'en-US': enUS
-}
 
 const localizer = dateFnsLocalizer({
   format,
   parse,
   startOfWeek,
   getDay,
-  locales,
+  locales: {
+    'en-US': enUS
+  }
 })
 
 interface VaccinationEvent extends Event {
@@ -31,24 +33,29 @@ interface VaccinationCalendarProps {
 }
 
 export function VaccinationCalendar({ vaccinations, onSelectEvent }: VaccinationCalendarProps) {
-  const events: VaccinationEvent[] = vaccinations
-    .filter(v => v.next_due_date)
-    .map(v => {
-      const status = getVaccinationStatus(v.next_due_date!)
-      const pet = v.pet
+  const [date, setDate] = useState(new Date())
+  const [view, setView] = useState<View>('month')
 
-      return {
-        id: v.id,
-        title: `${pet?.name || 'Unknown'}: ${v.title}`,
-        start: new Date(v.next_due_date!),
-        end: new Date(v.next_due_date!),
-        resource: {
-          vaccination: v,
-          status: status.status,
-          color: status.color
+  const events: VaccinationEvent[] = useMemo(() => {
+    return vaccinations
+      .filter(v => v.next_due_date)
+      .map(v => {
+        const status = getVaccinationStatus(v.next_due_date!)
+        const pet = v.pet
+
+        return {
+          id: v.id,
+          title: `${pet?.name || 'Unknown'}: ${v.title}`,
+          start: new Date(v.next_due_date!),
+          end: new Date(v.next_due_date!),
+          resource: {
+            vaccination: v,
+            status: status.status,
+            color: status.color
+          }
         }
-      }
-    })
+      })
+  }, [vaccinations])
 
   const eventStyleGetter = (event: VaccinationEvent) => {
     const colors: Record<string, { backgroundColor: string; color: string }> = {
@@ -59,8 +66,50 @@ export function VaccinationCalendar({ vaccinations, onSelectEvent }: Vaccination
     }
 
     return {
-      style: colors[event.resource.status] || colors.current
+      style: colors[event.resource.status] || { backgroundColor: '#10b981', color: 'white' }
     }
+  }
+
+  // Custom toolbar component
+  const CustomToolbar = ({ label, onNavigate }: any) => {
+    return (
+      <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate('PREV')}
+          className="gap-1"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">{label}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('TODAY')}
+          >
+            Today
+          </Button>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate('NEXT')}
+          className="gap-1"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+
+  const handleNavigate = (newDate: Date) => {
+    setDate(newDate)
   }
 
   return (
@@ -69,10 +118,16 @@ export function VaccinationCalendar({ vaccinations, onSelectEvent }: Vaccination
         .rbc-calendar {
           font-family: inherit;
         }
+        .rbc-month-view {
+          border: 1px solid #e5e7eb;
+          border-radius: 0.5rem;
+          overflow: hidden;
+        }
         .rbc-header {
           padding: 10px 3px;
           font-weight: 600;
-          font-size: 14px;
+          color: #374151;
+          border-bottom: 2px solid #e5e7eb;
         }
         .rbc-today {
           background-color: #f0fdf4;
@@ -81,19 +136,13 @@ export function VaccinationCalendar({ vaccinations, onSelectEvent }: Vaccination
           border-radius: 4px;
           padding: 2px 5px;
           font-size: 12px;
+          cursor: pointer;
         }
-        .rbc-event:focus {
-          outline: 2px solid #3b82f6;
+        .rbc-event:hover {
+          opacity: 0.8;
         }
-        .rbc-month-view {
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-        }
-        .rbc-day-bg {
-          border-left: 1px solid #e5e7eb;
-        }
-        .rbc-month-row {
-          border-top: 1px solid #e5e7eb;
+        .rbc-off-range-bg {
+          background-color: #f9fafb;
         }
       `}</style>
       <Calendar
@@ -104,9 +153,16 @@ export function VaccinationCalendar({ vaccinations, onSelectEvent }: Vaccination
         onSelectEvent={(event) => onSelectEvent?.(event.resource.vaccination)}
         eventPropGetter={eventStyleGetter}
         views={['month', 'agenda']}
-        defaultView="month"
-        popup
+        view={view}
+        onView={setView}
+        date={date}
+        onNavigate={handleNavigate}
+        components={{
+          toolbar: CustomToolbar
+        }}
         style={{ height: '100%' }}
+        popup
+        showMultiDayTimes
       />
     </div>
   )
