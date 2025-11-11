@@ -48,7 +48,7 @@ export function EditHealthRecordDialog({ open, onOpenChange, record, petName }: 
                 Edit Health Record
               </DialogTitle>
               <DialogDescription className="text-base mt-1">
-                Update medical history for {petName} 🐾
+                Update medical history for {record.pet?.name || (record as any).pets?.name || petName || 'your pet'} 🐾
               </DialogDescription>
             </div>
           </div>

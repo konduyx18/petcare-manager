@@ -6,31 +6,89 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DosageSchedule } from '@/components/health/DosageSchedule'
 import { AddHealthRecordDialog } from '@/components/health/AddHealthRecordDialog'
-import { usePrescriptions } from '@/hooks/usePrescriptions'
+import { useActivePrescriptions } from '@/hooks/usePrescriptions'
 import { usePets } from '@/hooks/usePets'
 import { getRemainingDoses, parseFrequency } from '@/utils/prescription-utils'
 import { Plus, Pill, Clock, Calendar, AlertCircle } from 'lucide-react'
-import { format, parseISO, isPast } from 'date-fns'
+import { format, parseISO, isPast, differenceInDays } from 'date-fns'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
 export default function PrescriptionManagerPage() {
-  const { data: allPrescriptions, isLoading } = usePrescriptions()
+  const { data: prescriptions, isLoading } = useActivePrescriptions()
   const { data: pets } = usePets()
 
   const [selectedPetId, setSelectedPetId] = useState<string>('all')
   const [selectedPrescription, setSelectedPrescription] = useState<HealthRecord | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
 
+  console.log('=== PrescriptionManagerPage Render ===')
+  console.log('All prescriptions:', prescriptions)
+  console.log('Prescription count:', prescriptions?.length)
+
   // Filter prescriptions by pet
   const filteredPrescriptions = useMemo(() => {
-    if (selectedPetId === 'all') return allPrescriptions || []
-    return allPrescriptions?.filter(p => p.pet_id === selectedPetId) || []
-  }, [allPrescriptions, selectedPetId])
+    if (selectedPetId === 'all') return prescriptions || []
+    return prescriptions?.filter(p => p.pet_id === selectedPetId) || []
+  }, [prescriptions, selectedPetId])
+
+  // Group by refill status with detailed logging
+  const needsRefill = useMemo(() => {
+    if (!prescriptions) {
+      console.log('No prescriptions data')
+      return []
+    }
+
+    const today = new Date()
+    console.log('Today:', today.toISOString())
+
+    const refillNeeded = prescriptions.filter(p => {
+      const details = p.prescription_details as any
+      
+      console.log('---')
+      console.log('Checking:', p.title)
+      console.log('Details:', details)
+      
+      if (!details?.end_date) {
+        console.log('No end date - skipping')
+        return false
+      }
+
+      const endDate = parseISO(details.end_date)
+      const daysUntilEnd = differenceInDays(endDate, today)
+      
+      console.log('End date:', details.end_date)
+      console.log('Parsed end date:', endDate)
+      console.log('Days until end:', daysUntilEnd)
+      console.log('Needs refill?', daysUntilEnd <= 7 && daysUntilEnd >= 0)
+
+      return daysUntilEnd <= 7 && daysUntilEnd >= 0
+    })
+
+    console.log('Refills needed:', refillNeeded)
+    return refillNeeded
+  }, [prescriptions])
+
+  const active = useMemo(() => {
+    if (!prescriptions) return []
+
+    const today = new Date()
+    return prescriptions.filter(p => {
+      const details = p.prescription_details as any
+      if (!details?.end_date) return true
+      
+      const endDate = parseISO(details.end_date)
+      const daysUntilEnd = differenceInDays(endDate, today)
+      return daysUntilEnd > 7
+    })
+  }, [prescriptions])
+
+  console.log('Needs refill count:', needsRefill.length)
+  console.log('Active (not needing refill) count:', active.length)
 
   // Group prescriptions by status
   const groupedPrescriptions = useMemo(() => {
-    const active: HealthRecord[] = []
+    const activeList: HealthRecord[] = []
     const completed: HealthRecord[] = []
     const now = new Date().toISOString()
 
@@ -39,11 +97,11 @@ export default function PrescriptionManagerPage() {
       if (details?.end_date && details.end_date < now) {
         completed.push(p)
       } else {
-        active.push(p)
+        activeList.push(p)
       }
     })
 
-    return { active, completed }
+    return { active: activeList, completed }
   }, [filteredPrescriptions])
 
   if (isLoading) {
@@ -151,6 +209,84 @@ export default function PrescriptionManagerPage() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Refill Alerts */}
+      {needsRefill.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-900 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Refills Needed ({needsRefill.length})
+            </CardTitle>
+            <CardDescription>These prescriptions are ending soon</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {needsRefill.map(prescription => {
+              const details = prescription.prescription_details as any
+              // @ts-ignore
+              const pet = Array.isArray((prescription as any).pets) 
+                // @ts-ignore
+                ? (prescription as any).pets[0] 
+                // @ts-ignore
+                : (prescription as any).pets
+              const daysRemaining = details?.end_date 
+                ? differenceInDays(parseISO(details.end_date), new Date())
+                : null
+
+              return (
+                <div
+                  key={prescription.id}
+                  onClick={() => setSelectedPrescription(prescription)}
+                  className="p-4 rounded-lg bg-white border-2 border-red-200 cursor-pointer transition-all hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">
+                          {pet?.name && (
+                            <span className="text-gray-600">{pet.name}</span>
+                          )}
+                          {pet?.name && ' - '}
+                          <span className="text-gray-900">{prescription.title}</span>
+                        </h3>
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Refill Soon
+                        </Badge>
+                      </div>
+                      
+                      <div className="mt-2 space-y-1 text-sm">
+                        {details?.medication_name && (
+                          <p>
+                            <span className="font-medium">Medication:</span> {details.medication_name}
+                          </p>
+                        )}
+                        {details?.dosage && (
+                          <p>
+                            <span className="font-medium">Dosage:</span> {details.dosage}
+                          </p>
+                        )}
+                        {details?.end_date && (
+                          <p>
+                            <span className="font-medium text-red-600">Ends:</span>{' '}
+                            {format(parseISO(details.end_date), 'MMM dd, yyyy')}
+                            {daysRemaining !== null && (
+                              <span className="text-red-600 font-bold ml-1">
+                                ({daysRemaining} days remaining)
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <AlertCircle className="h-8 w-8 text-red-600" />
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Prescriptions List */}
       <Tabs defaultValue="active">
@@ -264,9 +400,11 @@ function PrescriptionCard({
   
   // FIX: Handle both single object and array format from Supabase
   // @ts-ignore - pets can be array or object from Supabase join
-  const pet = Array.isArray(prescription.pets) 
-    ? prescription.pets[0] 
-    : prescription.pets
+  const pet = Array.isArray((prescription as any).pets) 
+    // @ts-ignore
+    ? (prescription as any).pets[0] 
+    // @ts-ignore
+    : (prescription as any).pets
 
   console.log('PrescriptionCard rendering')
   console.log('prescription:', prescription)

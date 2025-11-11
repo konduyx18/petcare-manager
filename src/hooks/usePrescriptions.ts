@@ -45,6 +45,7 @@ export function usePrescriptions(petId?: string) {
           .eq('user_id', user.id)
         
         if (userPets && userPets.length > 0) {
+          // @ts-ignore - Supabase types
           const petIds = userPets.map(p => p.id)
           query = query.in('pet_id', petIds)
         }
@@ -60,6 +61,7 @@ export function usePrescriptions(petId?: string) {
       
       console.log('Fetched prescriptions:', data)
       console.log('First prescription:', data?.[0])
+      // @ts-ignore
       console.log('First prescription pets:', data?.[0]?.pets)
       
       return data as HealthRecord[]
@@ -68,15 +70,70 @@ export function usePrescriptions(petId?: string) {
 }
 
 export function useActivePrescriptions(petId?: string) {
-  const { data: prescriptions } = usePrescriptions(petId)
+  return useQuery({
+    queryKey: ['active-prescriptions', petId],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
 
-  // Filter to only active prescriptions
-  const now = new Date().toISOString()
-  return prescriptions?.filter(p => {
-    const details = p.prescription_details as any
-    if (!details?.end_date) return true
-    return details.end_date >= now
-  }) || []
+      let query = supabase
+        .from('health_records')
+        .select(`
+          *,
+          pets!inner (
+            id,
+            name,
+            species,
+            photo_url
+          )
+        `)
+        .eq('record_type', 'prescription')
+
+      if (petId) {
+        query = query.eq('pet_id', petId)
+      } else {
+        const { data: userPets } = await supabase
+          .from('pets')
+          .select('id')
+          .eq('user_id', user.id)
+        
+        if (userPets && userPets.length > 0) {
+          // @ts-ignore - Supabase types
+          const petIds = userPets.map(p => p.id)
+          query = query.in('pet_id', petIds)
+        }
+      }
+
+      console.log('Fetching active prescriptions...')
+      const { data, error } = await query.order('date_administered', { ascending: false })
+      
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      console.log('All prescriptions:', data)
+
+      // Filter to only active prescriptions
+      const now = new Date().toISOString().split('T')[0] // Just the date part
+      const activePrescriptions = data?.filter(p => {
+        // @ts-ignore - Supabase types
+        const details = p.prescription_details as any
+        if (!details?.end_date) return true // No end date = ongoing
+        
+        // @ts-ignore
+        console.log('Checking prescription:', p.title)
+        console.log('End date:', details.end_date)
+        console.log('Today:', now)
+        console.log('Is active?', details.end_date >= now)
+        
+        return details.end_date >= now
+      }) || []
+
+      console.log('Active prescriptions:', activePrescriptions)
+      return activePrescriptions as HealthRecord[]
+    },
+  })
 }
 
 export function usePrescriptionDoses(prescriptionId: string) {
@@ -122,14 +179,17 @@ export function useMarkDoseAsGiven() {
 
       if (existingDose) {
         // Update existing dose
-        // @ts-ignore - Supabase types
+        const doseRecord = {
+          given_time: new Date().toISOString(),
+          given_by: user.id,
+          notes: notes || null,
+        }
+
         const { data, error } = await supabase
           .from('prescription_doses')
-          .update({
-            given_time: new Date().toISOString(),
-            given_by: user.id,
-            notes: notes || null,
-          })
+          // @ts-ignore - Supabase types
+          .update(doseRecord)
+          // @ts-ignore
           .eq('id', existingDose.id)
           .select()
           .single()
@@ -138,9 +198,9 @@ export function useMarkDoseAsGiven() {
         return data
       } else {
         // Create new dose record
-        // @ts-ignore - Supabase types
         const { data, error } = await supabase
           .from('prescription_doses')
+          // @ts-ignore - Supabase types
           .insert({
             health_record_id: prescriptionId,
             scheduled_time: scheduledTime,
@@ -178,6 +238,7 @@ export function useSkipDose() {
       // @ts-ignore - Supabase types
       const { data, error } = await supabase
         .from('prescription_doses')
+        // @ts-ignore - Supabase types
         .insert({
           health_record_id: prescriptionId,
           scheduled_time: scheduledTime,

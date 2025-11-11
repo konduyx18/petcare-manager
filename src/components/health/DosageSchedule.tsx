@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useMarkDoseAsGiven, useSkipDose, usePrescriptionDoses } from '@/hooks/usePrescriptions'
 import { generateDoseSchedule, getNextDoseIn } from '@/utils/prescription-utils'
-import { format } from 'date-fns'
-import { Clock, Check, X, AlertCircle, Calendar, Pill } from 'lucide-react'
+import { format, isToday, isPast } from 'date-fns'
+import { Clock, Check, X, AlertCircle, Calendar, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
@@ -121,6 +120,25 @@ export function DosageSchedule({ prescription }: DosageScheduleProps) {
     return { type: 'upcoming', label: 'Upcoming', color: 'bg-blue-100 text-blue-700' }
   }
 
+  // Helper functions for dose status checks
+  const isDoseGiven = (scheduledTime: Date) => {
+    const dose = doses?.find(d => 
+      new Date(d.scheduled_time).getTime() === scheduledTime.getTime()
+    )
+    return !!dose?.given_time
+  }
+
+  const isDoseSkipped = (scheduledTime: Date) => {
+    const dose = doses?.find(d => 
+      new Date(d.scheduled_time).getTime() === scheduledTime.getTime()
+    )
+    return !!dose?.skipped
+  }
+
+  const isDoseOverdue = (scheduledTime: Date) => {
+    return isPast(scheduledTime) && !isDoseGiven(scheduledTime) && !isDoseSkipped(scheduledTime)
+  }
+
   return (
     <div className="space-y-4">
       {/* Next Dose Card */}
@@ -182,41 +200,85 @@ export function DosageSchedule({ prescription }: DosageScheduleProps) {
           <CardDescription>Next {upcomingDoses.length} scheduled doses</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {upcomingDoses.map((dose, index) => {
-            const status = getDoseStatus(dose.time)
+          {upcomingDoses.map((dose, idx) => {
+            const given = isDoseGiven(dose.time)
+            const skipped = isDoseSkipped(dose.time)
+            const overdue = !given && !skipped && isDoseOverdue(dose.time)
+
             return (
               <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                key={idx}
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  given ? 'bg-green-50 border-green-200' : ''
+                } ${
+                  skipped ? 'bg-gray-100 border-gray-300' : ''
+                } ${
+                  !given && !skipped && overdue ? 'bg-red-50 border-red-200' : ''
+                } ${
+                  !given && !skipped && !overdue ? 'bg-white border-gray-200' : ''
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Pill className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">
-                      {format(dose.time, 'h:mm a')}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        {format(dose.time, 'h:mm a')}
+                      </p>
+                      {isToday(dose.time) && (
+                        <Badge variant="secondary" className="text-xs">
+                          Today
+                        </Badge>
+                      )}
+                      {overdue && !given && !skipped && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Overdue
+                        </Badge>
+                      )}
+                      {given && (
+                        <Badge className="bg-green-600 text-white text-xs">
+                          <Check className="h-3 w-3 mr-1" />
+                          Given
+                        </Badge>
+                      )}
+                      {skipped && (
+                        <Badge variant="secondary" className="bg-gray-400 text-white text-xs">
+                          <X className="h-3 w-3 mr-1" />
+                          Skipped
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {format(dose.time, 'EEEE, MMM dd')}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {format(dose.time, 'EEE, MMM dd')}
-                    </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className={status.color}>
-                    {status.label}
-                  </Badge>
-                  {status.type === 'upcoming' && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedTime(dose.time)
-                        setMarkDialogOpen(true)
-                      }}
-                    >
-                      Mark
-                    </Button>
+
+                  {!given && !skipped && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedTime(dose.time)
+                          setMarkDialogOpen(true)
+                        }}
+                        disabled={markAsGiven.isPending}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Given
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedTime(dose.time)
+                          setSkipDialogOpen(true)
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Skip
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -354,13 +416,15 @@ export function DosageSchedule({ prescription }: DosageScheduleProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4">
             <div>
-              <Label>Reason for skipping *</Label>
-              <Input
+              <Label htmlFor="skip-reason">Reason for skipping *</Label>
+              <Textarea
+                id="skip-reason"
                 placeholder="e.g., Pet refused, Vet advised to skip"
                 value={skipReason}
                 onChange={(e) => setSkipReason(e.target.value)}
+                className="min-h-[100px] mt-2"
               />
             </div>
 
@@ -376,10 +440,17 @@ export function DosageSchedule({ prescription }: DosageScheduleProps) {
               </Button>
               <Button
                 onClick={handleSkipDose}
-                disabled={skipDose.isPending || !skipReason.trim()}
-                variant="destructive"
+                disabled={!skipReason.trim() || skipDose.isPending}
+                className="bg-orange-600 hover:bg-orange-700"
               >
-                {skipDose.isPending ? 'Skipping...' : 'Skip Dose'}
+                {skipDose.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Skipping...
+                  </>
+                ) : (
+                  'Skip Dose'
+                )}
               </Button>
             </div>
           </div>

@@ -16,14 +16,39 @@ interface HealthRecordFormProps {
   isLoading?: boolean
 }
 
-export function HealthRecordForm({ petId, initialData, onSubmit, isLoading }: HealthRecordFormProps) {
+export function HealthRecordForm({ petId: _petId, initialData, onSubmit, isLoading }: HealthRecordFormProps) {
   const [recordType, setRecordType] = useState<HealthRecordType>(
     initialData?.record_type || 'vaccination'
   )
 
   const form = useForm<HealthRecordFormData>({
     resolver: zodResolver(healthRecordSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      record_type: initialData.record_type,
+      title: initialData.title || '',
+      date_administered: initialData.date_administered || '',
+      notes: initialData.notes || '',
+      cost: initialData.cost || undefined,
+      veterinarian: initialData.veterinarian || '',
+      // @ts-ignore - clinic_name and next_due_date may not exist on all record types
+      clinic_name: (initialData as any).clinic_name || '',
+      // @ts-ignore
+      next_due_date: (initialData as any).next_due_date || '',
+      // Extract prescription-specific fields from JSONB
+      // @ts-ignore - prescription_details exists on HealthRecord but not on HealthRecordFormData
+      ...(initialData.record_type === 'prescription' && initialData.prescription_details ? {
+        // @ts-ignore
+        medication_name: (initialData.prescription_details as any).medication_name || '',
+        // @ts-ignore
+        dosage: (initialData.prescription_details as any).dosage || '',
+        // @ts-ignore
+        frequency: (initialData.prescription_details as any).frequency || '',
+        // @ts-ignore
+        start_date: (initialData.prescription_details as any).start_date || '',
+        // @ts-ignore
+        end_date: (initialData.prescription_details as any).end_date || '',
+      } : {})
+    } : {
       record_type: 'vaccination',
       title: '',
       date_administered: new Date().toISOString().split('T')[0],

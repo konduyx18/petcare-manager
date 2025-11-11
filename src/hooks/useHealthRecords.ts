@@ -197,20 +197,96 @@ export function useUpdateHealthRecord() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<HealthRecordFormData> }) => {
+      // First, get the existing record to check its type
+      // @ts-ignore - Supabase types
+      const { data: existingRecord } = await supabase
+        .from('health_records')
+        .select('record_type, pet_id')
+        .eq('id', id)
+        .single()
+
+      if (!existingRecord) throw new Error('Record not found')
+
+      console.log('Updating record:', id)
+      // @ts-ignore
+      console.log('Record type:', existingRecord.record_type)
+      console.log('Update data received:', updates)
+
+      // Prepare the update data
+      let dataToUpdate: any = {}
+
+      // Handle prescription-specific fields
+      // @ts-ignore
+      if (existingRecord.record_type === 'prescription') {
+        const prescriptionUpdates = updates as any
+        
+        // Base fields that go to all records
+        if (prescriptionUpdates.title !== undefined) dataToUpdate.title = prescriptionUpdates.title
+        if (prescriptionUpdates.date_administered !== undefined) dataToUpdate.date_administered = prescriptionUpdates.date_administered
+        if (prescriptionUpdates.notes !== undefined) dataToUpdate.notes = prescriptionUpdates.notes
+        if (prescriptionUpdates.cost !== undefined) dataToUpdate.cost = prescriptionUpdates.cost
+        if (prescriptionUpdates.veterinarian !== undefined) dataToUpdate.veterinarian = prescriptionUpdates.veterinarian
+        
+        // Build prescription_details JSONB from flat fields
+        const prescriptionDetails: any = {}
+        
+        if (prescriptionUpdates.medication_name !== undefined) {
+          prescriptionDetails.medication_name = prescriptionUpdates.medication_name
+        }
+        if (prescriptionUpdates.dosage !== undefined) {
+          prescriptionDetails.dosage = prescriptionUpdates.dosage
+        }
+        if (prescriptionUpdates.frequency !== undefined) {
+          prescriptionDetails.frequency = prescriptionUpdates.frequency
+        }
+        if (prescriptionUpdates.start_date !== undefined) {
+          prescriptionDetails.start_date = prescriptionUpdates.start_date
+        }
+        if (prescriptionUpdates.end_date !== undefined) {
+          prescriptionDetails.end_date = prescriptionUpdates.end_date
+        }
+        
+        // Only set prescription_details if we have at least one field
+        if (Object.keys(prescriptionDetails).length > 0) {
+          dataToUpdate.prescription_details = prescriptionDetails
+        }
+        
+        console.log('Prescription details JSONB:', prescriptionDetails)
+      } else {
+        // For other record types, just copy all fields
+        dataToUpdate = { ...updates }
+      }
+
+      console.log('Final update payload:', dataToUpdate)
+
       const { data, error } = await supabase
         .from('health_records')
         // @ts-ignore - Supabase types
-        .update(updates)
+        .update(dataToUpdate)
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          pets (
+            id,
+            name,
+            species,
+            photo_url
+          )
+        `)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase update error:', error)
+        throw error
+      }
+
+      console.log('Successfully updated record:', data)
       return data as HealthRecord
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['health-records'] })
-      queryClient.invalidateQueries({ queryKey: ['pet-detail'] })
+      queryClient.invalidateQueries({ queryKey: ['pet-detail', data.pet_id] })
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
