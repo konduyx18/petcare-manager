@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { healthRecordSchema, type HealthRecordFormData, type HealthRecordType } from '@/lib/validations/health-record.schema'
-import { Loader2, Syringe, Stethoscope, Pill, Scissors } from 'lucide-react'
+import { Loader2, Syringe, Stethoscope, Pill, Scissors, Plus, Building2 } from 'lucide-react'
 import { useState } from 'react'
+import { useVets } from '@/hooks/useVets'
+import { AddVetDialog } from './AddVetDialog'
 
 interface HealthRecordFormProps {
   petId: string
@@ -20,6 +22,8 @@ export function HealthRecordForm({ petId: _petId, initialData, onSubmit, isLoadi
   const [recordType, setRecordType] = useState<HealthRecordType>(
     initialData?.record_type || 'vaccination'
   )
+  const [addVetDialogOpen, setAddVetDialogOpen] = useState(false)
+  const { data: vets } = useVets()
 
   const form = useForm<HealthRecordFormData>({
     resolver: zodResolver(healthRecordSchema),
@@ -93,6 +97,7 @@ export function HealthRecordForm({ petId: _petId, initialData, onSubmit, isLoadi
   }
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Record Type Selector */}
@@ -206,35 +211,123 @@ export function HealthRecordForm({ petId: _petId, initialData, onSubmit, isLoadi
 
         {(recordType === 'vaccination' || recordType === 'vet_visit' || recordType === 'procedure') && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recordType === 'vet_visit' && vets && vets.length > 0 ? (
               <FormField
                 control={form.control}
                 name="veterinarian"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Veterinarian</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Dr. Smith" {...field} value={field.value || ''} className="h-11" />
-                    </FormControl>
+                    <FormLabel>Select Veterinarian</FormLabel>
+                    <div className="flex gap-2">
+                      <Select
+                        value={field.value || ''}
+                        onValueChange={(value) => {
+                          if (value === 'custom') {
+                            field.onChange('')
+                            form.setValue('clinic_name', '')
+                          } else if (value) {
+                            const selectedVet = vets.find(v => v.id === value)
+                            if (selectedVet) {
+                              field.onChange(selectedVet.vet_name || selectedVet.clinic_name)
+                              form.setValue('clinic_name', selectedVet.clinic_name)
+                            }
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Choose from saved vets..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-white">
+                          <SelectItem value="custom">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              Enter manually
+                            </div>
+                          </SelectItem>
+                          {vets.map((vet) => (
+                            <SelectItem key={vet.id} value={vet.id}>
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                <div>
+                                  <div className="font-medium">{vet.clinic_name}</div>
+                                  {vet.vet_name && (
+                                    <div className="text-xs text-gray-500">{vet.vet_name}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setAddVetDialogOpen(true)}
+                        className="h-11 w-11 flex-shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormDescription>
+                      Select a saved vet or add a new one
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="veterinarian"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Veterinarian</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Dr. Smith" {...field} value={field.value || ''} className="h-11" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="clinic_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Clinic Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Happy Paws Veterinary" {...field} value={field.value || ''} className="h-11" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <FormField
+                  control={form.control}
+                  name="clinic_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Clinic Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Happy Paws Veterinary" {...field} value={field.value || ''} className="h-11" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+            
+            {recordType === 'vet_visit' && (!vets || vets.length === 0) && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-blue-800">
+                  <Building2 className="h-4 w-4" />
+                  <span>No saved vets yet. Add one for quick selection next time!</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddVetDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Vet
+                </Button>
+              </div>
+            )}
           </>
         )}
 
@@ -450,5 +543,12 @@ export function HealthRecordForm({ petId: _petId, initialData, onSubmit, isLoadi
         </Button>
       </form>
     </Form>
+
+    {/* Add Vet Dialog */}
+    <AddVetDialog
+      open={addVetDialogOpen}
+      onOpenChange={setAddVetDialogOpen}
+    />
+  </>
   )
 }

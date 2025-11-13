@@ -11,7 +11,7 @@ import { EditHealthRecordDialog } from '@/components/health/EditHealthRecordDial
 import { DeleteHealthRecordDialog } from '@/components/health/DeleteHealthRecordDialog'
 import { useAllHealthRecords } from '@/hooks/useHealthRecords'
 import { usePets } from '@/hooks/usePets'
-import { Plus, Search, Filter, Syringe, Pill } from 'lucide-react'
+import { Plus, Search, Filter, Syringe, Pill, Stethoscope } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
@@ -113,6 +113,15 @@ export default function HealthHubPage() {
           >
             <Pill className="h-5 w-5" />
             Prescriptions
+          </Button>
+          <Button
+            onClick={() => navigate({ to: '/health/vets' })}
+            variant="outline"
+            className="gap-2"
+            size="lg"
+          >
+            <Stethoscope className="h-5 w-5" />
+            Vet Directory
           </Button>
           <Button
             onClick={() => setAddDialogOpen(true)}
