@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Home, PawPrint, HeartPulse, ShoppingCart, Store } from 'lucide-react'
+import { Home, PawPrint, HeartPulse, ShoppingCart, Store, Settings } from 'lucide-react'
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -7,6 +7,7 @@ const navItems = [
   { path: '/health', label: 'Health Hub', icon: HeartPulse },
   { path: '/supplies', label: 'Supplies', icon: ShoppingCart },
   { path: '/shop', label: 'Shop', icon: Store },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function Sidebar() {

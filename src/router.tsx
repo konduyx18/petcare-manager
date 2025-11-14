@@ -13,6 +13,7 @@ import PrescriptionManagerPage from '@/pages/health/PrescriptionManagerPage'
 import VetDirectoryPage from '@/pages/health/VetDirectoryPage'
 import SuppliesPage from '@/pages/SuppliesPage'
 import ShopPage from '@/pages/ShopPage'
+import SettingsPage from '@/pages/SettingsPage'
 
 // Root route
 const rootRoute = createRootRoute()
@@ -154,6 +155,18 @@ const shopRoute = createRoute({
   ),
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: () => (
+    <ProtectedRoute>
+      <AppLayout>
+        <SettingsPage />
+      </AppLayout>
+    </ProtectedRoute>
+  ),
+})
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -169,6 +182,7 @@ const routeTree = rootRoute.addChildren([
   vetDirectoryRoute,
   suppliesRoute,
   shopRoute,
+  settingsRoute,
 ])
 
 // Create router instance

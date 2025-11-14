@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-vapid": "tsx src/scripts/generate-vapid-keys.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
@@ -17,11 +18,13 @@
     "@types/react": "^19.2.2",
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19.2.2",
+    "@types/web-push": "^3.6.4",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
     "@vitejs/plugin-react": "^5.1.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "vite": "^7.1.7",
     "vitest": "^4.0.7"
@@ -58,6 +61,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.17",
     "vite-plugin-pwa": "^1.1.0",
+    "web-push": "^3.6.7",
     "workbox-window": "^7.3.0",
     "zod": "^4.1.12",
     "zustand": "^5.0.8"
