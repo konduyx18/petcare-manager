@@ -5,6 +5,7 @@ export type HealthRecordType = typeof healthRecordTypes[number]
 
 // Base schema shared by all record types
 const baseHealthRecordSchema = z.object({
+  pet_id: z.string().min(1, 'Please select a pet'),
   record_type: z.enum(healthRecordTypes),
   title: z.string().min(2, 'Title must be at least 2 characters').max(100),
   date_administered: z.string().min(1, 'Date is required'),

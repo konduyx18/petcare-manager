@@ -33,7 +33,12 @@ export default function VetDirectoryPage() {
   }, [vets, searchQuery])
 
   // Get primary vet
-  const primaryVet = vets?.find(vet => vet.is_primary)
+  const primaryVet = useMemo(() => {
+    const primary = vets?.find(v => v.is_primary)
+    console.log('All vets:', vets)
+    console.log('Primary vet:', primary)
+    return primary
+  }, [vets])
 
   // Separate primary and other vets
   const { primary, others } = useMemo(() => {
@@ -118,11 +123,16 @@ export default function VetDirectoryPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Primary Vet</p>
-                <p className="text-lg font-bold text-yellow-700 truncate">
+                <p className="text-xl font-bold text-orange-600">
                   {primaryVet ? primaryVet.clinic_name : 'Not set'}
                 </p>
+                {primaryVet && primaryVet.vet_name && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {primaryVet.vet_name}
+                  </p>
+                )}
               </div>
-              <Star className="h-8 w-8 text-yellow-500 fill-current" />
+              <Star className="h-8 w-8 text-yellow-500" fill="currentColor" />
             </div>
           </CardContent>
         </Card>

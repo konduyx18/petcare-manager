@@ -25,26 +25,29 @@ export function useVets() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Fetch vets with usage count (how many health records reference this vet)
+      console.log('Fetching vets for user:', user.id)
+
+      // Simplified query without health_records join
       const { data, error } = await supabase
         .from('vets')
-        .select(`
-          *,
-          health_records:health_records(count)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('is_primary', { ascending: false })
         .order('clinic_name', { ascending: true })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching vets:', error)
+        throw error
+      }
 
-      // Transform to include usage_count
-      // @ts-ignore - Supabase types
+      console.log('Fetched vets successfully:', data)
+      console.log('Vet count:', data?.length || 0)
+
+      // Return vets with usage_count set to 0 for now
+      // TODO: Calculate usage_count separately by matching veterinarian text field
       return (data || []).map(vet => ({
-        // @ts-ignore - Spread operator on Supabase type
-        ...vet,
-        // @ts-ignore
-        usage_count: vet.health_records?.[0]?.count || 0
+        ...(vet as any),
+        usage_count: 0
       })) as Vet[]
     },
   })

@@ -232,14 +232,12 @@ export default function HealthHubPage() {
       )}
 
       {/* Dialogs */}
-      {pets && pets.length > 0 && (
-        <AddHealthRecordDialog
-          open={addDialogOpen}
-          onOpenChange={setAddDialogOpen}
-          petId={selectedPetId !== 'all' ? selectedPetId : pets[0].id}
-          petName={selectedPetId !== 'all' && selectedPet ? selectedPet.name : pets[0].name}
-        />
-      )}
+      <AddHealthRecordDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        // DO NOT pass petId - let user select in the form
+        // DO NOT pass petName - show generic message
+      />
 
       {selectedRecord && (
         <>

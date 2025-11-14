@@ -8,18 +8,30 @@ import type { HealthRecordFormData } from '@/lib/validations/health-record.schem
 interface AddHealthRecordDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  petId: string
-  petName: string
+  petId?: string  // Only pass this from Pet Detail page
+  petName?: string
 }
 
-export function AddHealthRecordDialog({ open, onOpenChange, petId, petName }: AddHealthRecordDialogProps) {
+export function AddHealthRecordDialog({ 
+  open, 
+  onOpenChange, 
+  petId, 
+  petName
+}: AddHealthRecordDialogProps) {
   const createRecord = useCreateHealthRecord()
 
   const handleSubmit = async (data: HealthRecordFormData) => {
     try {
-      await createRecord.mutateAsync({ petId, ...data })
+      // Use petId from data if not provided as prop, otherwise use prop
+      const targetPetId = petId || (data as any).pet_id
+      if (!targetPetId) {
+        toast.error('Please select a pet')
+        return
+      }
+      
+      await createRecord.mutateAsync({ petId: targetPetId, ...data })
       toast.success('🎉 Health record added!', {
-        description: `Added ${data.title} for ${petName}`,
+        description: `Added ${data.title}${petName ? ` for ${petName}` : ''}`,
       })
       onOpenChange(false)
     } catch (error) {
@@ -47,7 +59,7 @@ export function AddHealthRecordDialog({ open, onOpenChange, petId, petName }: Ad
                 Add Health Record
               </DialogTitle>
               <DialogDescription className="text-base mt-1">
-                Track medical history for {petName} 🐾
+                {petName ? `Track medical history for ${petName} 🐾` : 'Track medical history for your pets 🐾'}
               </DialogDescription>
             </div>
           </div>
@@ -58,6 +70,7 @@ export function AddHealthRecordDialog({ open, onOpenChange, petId, petName }: Ad
             petId={petId}
             onSubmit={handleSubmit}
             isLoading={createRecord.isPending}
+            allowPetSelection={!petId}  // TRUE when from Health Hub, FALSE when from Pet Detail
           />
         </div>
       </DialogContent>

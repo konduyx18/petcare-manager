@@ -1,8 +1,16 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { useDeleteVet, type Vet } from '@/hooks/useVets'
-import { toast } from 'sonner'
 import { AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useDeleteVet } from '@/hooks/useVets'
+import { toast } from 'sonner'
+import type { Vet } from '@/hooks/useVets'
 
 interface DeleteVetDialogProps {
   vet: Vet | null
@@ -10,32 +18,34 @@ interface DeleteVetDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function DeleteVetDialog({ vet, open, onOpenChange }: DeleteVetDialogProps) {
+export function DeleteVetDialog({
+  vet,
+  open,
+  onOpenChange,
+}: DeleteVetDialogProps) {
   const deleteVet = useDeleteVet()
 
-  if (!vet) return null
-
   const handleDelete = async () => {
+    if (!vet) return
+
     try {
       await deleteVet.mutateAsync(vet.id)
-      toast.success('Vet deleted successfully', {
-        description: `${vet.clinic_name} has been removed from your directory.`,
-      })
+      toast.success(`Deleted ${vet.clinic_name}`)
       onOpenChange(false)
     } catch (error) {
-      console.error('Error deleting vet:', error)
-      toast.error('Failed to delete vet', {
-        description: 'Please try again later.',
-      })
+      toast.error('Failed to delete vet')
+      console.error('Delete error:', error)
     }
   }
 
+  if (!vet) return null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
             Delete Veterinarian
           </DialogTitle>
           <DialogDescription>
@@ -44,23 +54,22 @@ export function DeleteVetDialog({ vet, open, onOpenChange }: DeleteVetDialogProp
         </DialogHeader>
 
         <div className="py-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-sm text-amber-800">
-              <strong>Note:</strong> This will not delete health records that reference this vet.
-              Those records will still show the vet information, but you won't be able to select
-              this vet for new records.
-            </p>
-          </div>
-
-          {vet.usage_count && vet.usage_count > 0 && (
-            <div className="mt-3 text-sm text-gray-600">
-              This vet is referenced in <strong>{vet.usage_count}</strong> health record(s).
+          <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <strong>Note:</strong> This will not delete health records that
+                reference this vet. Those records will still show the vet
+                information, but you won't be able to select this vet for new
+                records.
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-row justify-end gap-2">
           <Button
+            type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={deleteVet.isPending}
@@ -68,11 +77,12 @@ export function DeleteVetDialog({ vet, open, onOpenChange }: DeleteVetDialogProp
             Cancel
           </Button>
           <Button
+            type="button"
             variant="destructive"
             onClick={handleDelete}
             disabled={deleteVet.isPending}
           >
-            {deleteVet.isPending ? 'Deleting...' : 'Delete Vet'}
+            {deleteVet.isPending ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>
