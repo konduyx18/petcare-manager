@@ -14,6 +14,7 @@ import VetDirectoryPage from '@/pages/health/VetDirectoryPage'
 import SuppliesPage from '@/pages/SuppliesPage'
 import ShopPage from '@/pages/ShopPage'
 import SettingsPage from '@/pages/SettingsPage'
+import NotificationPreferencesPage from '@/pages/settings/NotificationPreferencesPage'
 
 // Root route
 const rootRoute = createRootRoute()
@@ -167,6 +168,18 @@ const settingsRoute = createRoute({
   ),
 })
 
+const notificationPreferencesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/notifications',
+  component: () => (
+    <ProtectedRoute>
+      <AppLayout>
+        <NotificationPreferencesPage />
+      </AppLayout>
+    </ProtectedRoute>
+  ),
+})
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -183,6 +196,7 @@ const routeTree = rootRoute.addChildren([
   suppliesRoute,
   shopRoute,
   settingsRoute,
+  notificationPreferencesRoute,
 ])
 
 // Create router instance
