@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePets } from '@/hooks/usePets'
 import { useSupplySchedules } from '@/hooks/useSupplySchedules'
@@ -216,9 +216,25 @@ export default function SuppliesPage() {
 
       {/* Add Supply Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside
+            e.preventDefault()
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Add New Supply</DialogTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Package className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold">Add New Supply</DialogTitle>
+                <DialogDescription className="text-sm text-gray-600">
+                  Track pet supplies and get reminders when it's time to reorder 📦
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <SupplyForm 
             onSuccess={() => setShowAddDialog(false)}

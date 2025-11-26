@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useMarkAsOrdered, useDeleteSupply, type SupplySchedule } from '@/hooks/useSupplySchedules'
 import { useTrackAffiliateClick, handleAffiliateClick } from '@/hooks/useTrackAffiliateClick'
 import { 
@@ -233,9 +233,25 @@ export default function SupplyCard({ supply }: SupplyCardProps) {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside
+            e.preventDefault()
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Supply</DialogTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Edit className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold">Edit Supply</DialogTitle>
+                <DialogDescription className="text-sm text-gray-600">
+                  Update supply details and reorder schedule
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <SupplyForm 
             supply={supply} 

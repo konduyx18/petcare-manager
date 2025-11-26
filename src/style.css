@@ -56,3 +56,17 @@
     color: hsl(var(--foreground));
   }
 }
+
+/* Dialog overlay and content styles for better visibility */
+[data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-radix-dialog-content] {
+  background-color: white !important;
+  opacity: 1 !important;
+}
+
+.dark [data-radix-dialog-content] {
+  background-color: rgb(17, 24, 39) !important;
+}

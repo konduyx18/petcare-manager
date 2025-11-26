@@ -130,6 +130,9 @@ export function useAddSupply() {
 
   return useMutation({
     mutationFn: async (data: AddSupplyData) => {
+      console.log('✅ useAddSupply mutation called!')
+      console.log('Mutation data:', data)
+      
       if (!user?.id) throw new Error('User not authenticated')
 
       // Calculate next reminder date
@@ -137,31 +140,42 @@ export function useAddSupply() {
         data.last_purchase_date,
         data.frequency_days
       )
+      console.log('Calculated next reminder:', nextReminderDate)
+
+      const insertData = {
+        // user_id removed - table doesn't have this column!
+        // User ownership is checked through pets table relationship
+        pet_id: data.pet_id,
+        product_name: data.product_name,
+        category: data.category,
+        frequency_days: data.frequency_days,
+        last_purchase_date: data.last_purchase_date.toISOString().split('T')[0],
+        next_reminder_date: nextReminderDate.toISOString().split('T')[0],
+        affiliate_links: data.affiliate_links || {}
+      }
+      console.log('Insert data:', insertData)
 
       const { data: newSupply, error } = await supabase
         .from('supply_schedules')
-        .insert({
-          user_id: user.id,
-          pet_id: data.pet_id,
-          product_name: data.product_name,
-          category: data.category,
-          frequency_days: data.frequency_days,
-          last_purchase_date: data.last_purchase_date.toISOString().split('T')[0],
-          next_reminder_date: nextReminderDate.toISOString().split('T')[0],
-          affiliate_links: data.affiliate_links || {}
-        } as any)
+        .insert(insertData as any)
         .select()
         .single()
 
-      if (error) throw error
+      console.log('Database insert result:', { newSupply, error })
+
+      if (error) {
+        console.error('❌ Database error:', error)
+        throw error
+      }
       return newSupply as any
     },
     onSuccess: (data) => {
+      console.log('✅ Mutation succeeded!', data)
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
       toast.success(`Added ${data.product_name} to supplies`)
     },
     onError: (error: Error) => {
-      console.error('Error adding supply:', error)
+      console.error('❌ Mutation failed:', error)
       toast.error('Failed to add supply. Please try again.')
     }
   })

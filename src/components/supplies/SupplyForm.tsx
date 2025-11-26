@@ -1,28 +1,18 @@
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format } from 'date-fns'
-import { CalendarIcon, Info } from 'lucide-react'
+import { format, formatDistanceToNow } from 'date-fns'
+import { CalendarIcon, ChevronDown, Loader2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { usePets } from '@/hooks/usePets'
 import { useAddSupply, useUpdateSupply, type SupplySchedule } from '@/hooks/useSupplySchedules'
-import { calculateNextReminderDate } from '@/utils/supply-utils'
 import { cn } from '@/lib/utils'
 import confetti from 'canvas-confetti'
 
@@ -35,7 +25,17 @@ const supplyFormSchema = z.object({
   category: z.enum(['Food', 'Medication', 'Treats', 'Grooming', 'Toys', 'Supplements', 'Other']),
   frequency_amount: z.number().int().min(1).max(365),
   frequency_unit: z.enum(['days', 'weeks', 'months']),
-  last_purchase_date: z.date().max(new Date(), 'Date cannot be in the future'),
+  last_purchase_date: z.date().refine(
+    (date) => {
+      // Compare dates without time (set both to midnight)
+      const today = new Date()
+      today.setHours(23, 59, 59, 999) // End of today
+      return date <= today
+    },
+    {
+      message: "Date cannot be in the future"
+    }
+  ),
   affiliate_chewy: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   affiliate_amazon: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   affiliate_petco: z.string().url('Must be a valid URL').optional().or(z.literal('')),
@@ -53,6 +53,7 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
   const { data: pets, isLoading: petsLoading } = usePets()
   const addSupply = useAddSupply()
   const updateSupply = useUpdateSupply()
+  const [showAffiliateLinks, setShowAffiliateLinks] = useState(false)
 
   const isEditMode = !!supply
 
@@ -71,13 +72,7 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
 
   const frequencyDefaults = getFrequencyDefaults(supply?.frequency_days)
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<SupplyFormData>({
+  const form = useForm<SupplyFormData>({
     resolver: zodResolver(supplyFormSchema),
     defaultValues: {
       pet_id: supply?.pet_id || '',
@@ -92,26 +87,29 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
     },
   })
 
-  // Watch form values for real-time next reminder calculation
-  const watchedFrequencyAmount = useWatch({ control, name: 'frequency_amount' })
-  const watchedFrequencyUnit = useWatch({ control, name: 'frequency_unit' })
-  const watchedLastPurchase = useWatch({ control, name: 'last_purchase_date' })
+  // Watch form fields for auto-calculating next reminder date
+  const watchedLastPurchase = form.watch('last_purchase_date')
+  const watchedFrequencyAmount = form.watch('frequency_amount')
+  const watchedFrequencyUnit = form.watch('frequency_unit')
 
-  // Calculate next reminder date in real-time
-  const nextReminderDate = (() => {
-    if (!watchedLastPurchase || !watchedFrequencyAmount) return null
-
-    const multiplier = {
-      days: 1,
-      weeks: 7,
-      months: 30,
-    }[watchedFrequencyUnit || 'days']
-
+  const calculatedNextReminderDate = useMemo(() => {
+    if (!watchedLastPurchase || !watchedFrequencyAmount || !watchedFrequencyUnit) {
+      return null
+    }
+    
+    const multiplier = watchedFrequencyUnit === 'weeks' ? 7 : watchedFrequencyUnit === 'months' ? 30 : 1
     const frequencyDays = watchedFrequencyAmount * multiplier
-    return calculateNextReminderDate(watchedLastPurchase, frequencyDays)
-  })()
+    
+    const nextDate = new Date(watchedLastPurchase)
+    nextDate.setDate(nextDate.getDate() + frequencyDays)
+    
+    return nextDate
+  }, [watchedLastPurchase, watchedFrequencyAmount, watchedFrequencyUnit])
 
   const onSubmit = async (data: SupplyFormData) => {
+    console.log('🚀 Form submit triggered!')
+    console.log('Form data:', data)
+    
     try {
       // Convert frequency to days
       const multiplier = {
@@ -121,6 +119,7 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
       }[data.frequency_unit]
       
       const frequency_days = data.frequency_amount * multiplier
+      console.log('Calculated frequency_days:', frequency_days)
 
       // Prepare affiliate links
       const affiliate_links: any = {}
@@ -129,6 +128,7 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
       if (data.affiliate_petco) affiliate_links.petco = data.affiliate_petco
 
       if (isEditMode) {
+        console.log('Edit mode - calling updateSupply mutation...')
         // Update existing supply
         await updateSupply.mutateAsync({
           id: supply.id,
@@ -140,6 +140,7 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
           affiliate_links: Object.keys(affiliate_links).length > 0 ? affiliate_links : {},
         })
       } else {
+        console.log('Add mode - calling addSupply mutation...')
         // Add new supply
         await addSupply.mutateAsync({
           pet_id: data.pet_id,
@@ -158,233 +159,307 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
         })
       }
 
+      console.log('✅ Mutation completed, calling onSuccess')
       onSuccess?.()
     } catch (error) {
-      console.error('Form submission error:', error)
+      console.error('❌ Form submission error:', error)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Pet Selector */}
-      <div className="space-y-2">
-        <Label htmlFor="pet_id">Pet *</Label>
-        <Select
-          value={useWatch({ control, name: 'pet_id' }) || ''}
-          onValueChange={(value) => setValue('pet_id', value)}
-          disabled={petsLoading}
-        >
-          <SelectTrigger id="pet_id" className={errors.pet_id ? 'border-red-500' : ''}>
-            <SelectValue placeholder="Select a pet" />
-          </SelectTrigger>
-          <SelectContent>
-            {pets?.map((pet) => (
-              <SelectItem key={pet.id} value={pet.id}>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={pet.photo_url || undefined} alt={pet.name} />
-                    <AvatarFallback className="text-xs">
-                      {pet.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>{pet.name}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.pet_id && (
-          <p className="text-sm text-red-500">{errors.pet_id.message}</p>
-        )}
-      </div>
-
-      {/* Product Name */}
-      <div className="space-y-2">
-        <Label htmlFor="product_name">Product Name *</Label>
-        <Input
-          id="product_name"
-          placeholder="Royal Canin Medium Adult Dry Dog Food"
-          {...register('product_name')}
-          className={errors.product_name ? 'border-red-500' : ''}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        console.log('❌ Form validation errors:', errors)
+      })} className="space-y-6">
+        
+        {/* Pet Selector */}
+        <FormField
+          control={form.control}
+          name="pet_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Select Pet <span className="text-red-500">*</span></FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={petsLoading}>
+                <FormControl>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Choose which pet..." />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="bg-white">
+                  {petsLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading pets...
+                    </SelectItem>
+                  ) : pets && pets.length > 0 ? (
+                    pets.map((pet) => (
+                      <SelectItem key={pet.id} value={pet.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={pet.photo_url || undefined} alt={pet.name} />
+                            <AvatarFallback className="text-xs">
+                              {pet.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{pet.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No pets found. Add a pet first!
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <FormDescription>Select which pet this supply is for</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        {errors.product_name && (
-          <p className="text-sm text-red-500">{errors.product_name.message}</p>
-        )}
-      </div>
-
-      {/* Category */}
-      <div className="space-y-2">
-        <Label htmlFor="category">Category *</Label>
-        <Select
-          value={useWatch({ control, name: 'category' }) || 'Food'}
-          onValueChange={(value: any) => setValue('category', value)}
-        >
-          <SelectTrigger id="category">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Food">Food</SelectItem>
-            <SelectItem value="Medication">Medication</SelectItem>
-            <SelectItem value="Treats">Treats</SelectItem>
-            <SelectItem value="Grooming">Grooming</SelectItem>
-            <SelectItem value="Toys">Toys</SelectItem>
-            <SelectItem value="Supplements">Supplements</SelectItem>
-            <SelectItem value="Other">Other</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Frequency */}
-      <div className="space-y-2">
-        <Label>Reorder Frequency *</Label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Input
-              type="number"
-              min="1"
-              max="365"
-              placeholder="30"
-              {...register('frequency_amount', { valueAsNumber: true })}
-              className={errors.frequency_amount ? 'border-red-500' : ''}
-            />
-            {errors.frequency_amount && (
-              <p className="text-sm text-red-500 mt-1">{errors.frequency_amount.message}</p>
+        
+        {/* Product Name */}
+        <FormField
+          control={form.control}
+          name="product_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Product Name <span className="text-red-500">*</span></FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Royal Canin Medium Adult Dry Dog Food" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Category */}
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category <span className="text-red-500">*</span></FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="bg-white">
+                  <SelectItem value="Food">🍖 Food</SelectItem>
+                  <SelectItem value="Medication">💊 Medication</SelectItem>
+                  <SelectItem value="Treats">🦴 Treats</SelectItem>
+                  <SelectItem value="Grooming">✂️ Grooming</SelectItem>
+                  <SelectItem value="Toys">🎾 Toys</SelectItem>
+                  <SelectItem value="Supplements">💪 Supplements</SelectItem>
+                  <SelectItem value="Other">📦 Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Frequency - Side by side inputs */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="frequency_amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reorder Frequency <span className="text-red-500">*</span></FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="365"
+                    placeholder="30"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </div>
-          <Select
-            value={useWatch({ control, name: 'frequency_unit' }) || 'days'}
-            onValueChange={(value: any) => setValue('frequency_unit', value)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="days">Days</SelectItem>
-              <SelectItem value="weeks">Weeks</SelectItem>
-              <SelectItem value="months">Months</SelectItem>
-            </SelectContent>
-          </Select>
+          />
+          
+          <FormField
+            control={form.control}
+            name="frequency_unit"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>&nbsp;</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="days">Days</SelectItem>
+                    <SelectItem value="weeks">Weeks</SelectItem>
+                    <SelectItem value="months">Months</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
-      </div>
-
-      {/* Last Purchase Date */}
-      <div className="space-y-2">
-        <Label>Last Purchase Date *</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                'w-full justify-start text-left font-normal',
-                !watchedLastPurchase && 'text-muted-foreground',
-                errors.last_purchase_date && 'border-red-500'
+        
+        {/* Last Purchase Date */}
+        <FormField
+          control={form.control}
+          name="last_purchase_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Last Purchase Date <span className="text-red-500">*</span></FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? (
+                        format(field.value, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-white" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("1900-01-01")
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>When did you last purchase this item?</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Next Reminder Date (Auto-calculated, read-only) */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Next Reminder Date</p>
+              <p className="text-xs text-gray-500 mt-1">Auto-calculated based on frequency</p>
+            </div>
+            <div className="text-right">
+              {calculatedNextReminderDate ? (
+                <>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {format(calculatedNextReminderDate, "PPP")}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    ({formatDistanceToNow(calculatedNextReminderDate, { addSuffix: true })})
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400">Select date and frequency</p>
               )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {watchedLastPurchase ? format(watchedLastPurchase, 'PPP') : 'Pick a date'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={watchedLastPurchase}
-              onSelect={(date: Date | undefined) => date && setValue('last_purchase_date', date)}
-              disabled={(date: Date) => date > new Date()}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-        {errors.last_purchase_date && (
-          <p className="text-sm text-red-500">{errors.last_purchase_date.message}</p>
-        )}
-      </div>
-
-      {/* Next Reminder Date (Read-only, calculated) */}
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2">
-          Next Reminder Date
-          <Info className="h-4 w-4 text-muted-foreground" />
-        </Label>
-        <Input
-          value={nextReminderDate ? format(nextReminderDate, 'PPPP') : 'Select frequency and last purchase date'}
-          disabled
-          className="bg-muted text-muted-foreground"
-        />
-      </div>
-
-      {/* Affiliate Links (Optional) */}
-      <div className="space-y-4 pt-4 border-t">
-        <div>
-          <Label className="text-base font-semibold">Affiliate Links (Optional)</Label>
-          <p className="text-sm text-muted-foreground mt-1">
-            Add shopping links to easily reorder this product
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="affiliate_chewy" className="text-sm">Chewy URL</Label>
-            <Input
-              id="affiliate_chewy"
-              type="url"
-              placeholder="https://www.chewy.com/..."
-              {...register('affiliate_chewy')}
-              className={errors.affiliate_chewy ? 'border-red-500' : ''}
-            />
-            {errors.affiliate_chewy && (
-              <p className="text-sm text-red-500">{errors.affiliate_chewy.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="affiliate_amazon" className="text-sm">Amazon URL</Label>
-            <Input
-              id="affiliate_amazon"
-              type="url"
-              placeholder="https://www.amazon.com/..."
-              {...register('affiliate_amazon')}
-              className={errors.affiliate_amazon ? 'border-red-500' : ''}
-            />
-            {errors.affiliate_amazon && (
-              <p className="text-sm text-red-500">{errors.affiliate_amazon.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="affiliate_petco" className="text-sm">Petco URL</Label>
-            <Input
-              id="affiliate_petco"
-              type="url"
-              placeholder="https://www.petco.com/..."
-              {...register('affiliate_petco')}
-              className={errors.affiliate_petco ? 'border-red-500' : ''}
-            />
-            {errors.affiliate_petco && (
-              <p className="text-sm text-red-500">{errors.affiliate_petco.message}</p>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Form Actions */}
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          className="flex-1"
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          className="flex-1"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Saving...' : isEditMode ? 'Update Supply' : 'Add Supply'}
-        </Button>
-      </div>
-    </form>
+        
+        {/* Affiliate Links - Collapsible Section */}
+        <div className="border-t pt-4">
+          <button
+            type="button"
+            onClick={() => setShowAffiliateLinks(!showAffiliateLinks)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-700">Affiliate Links (Optional)</p>
+              <p className="text-xs text-gray-500 mt-1">Add shopping links to easily reorder this product</p>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", showAffiliateLinks && "rotate-180")} />
+          </button>
+          
+          {showAffiliateLinks && (
+            <div className="mt-4 space-y-4">
+              <FormField
+                control={form.control}
+                name="affiliate_chewy"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chewy URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://www.chewy.com/..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="affiliate_amazon"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amazon URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://www.amazon.com/..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="affiliate_petco"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Petco URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://www.petco.com/..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-2 justify-end pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={form.formState.isSubmitting}
+          >
+            Cancel
+          </Button>
+          
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEditMode ? 'Updating...' : 'Adding...'}
+              </>
+            ) : (
+              isEditMode ? 'Update Supply' : 'Add Supply'
+            )}
+          </Button>
+        </div>
+        
+      </form>
+    </Form>
   )
 }
