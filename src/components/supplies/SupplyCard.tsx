@@ -263,18 +263,22 @@ export default function SupplyCard({ supply }: SupplyCardProps) {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-white max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Supply?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{supply.product_name}"? This action cannot be undone.
+            <AlertDialogTitle className="text-gray-900">
+              Delete Supply?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
+              Are you sure you want to delete <span className="font-medium">"{supply.product_name}"</span>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-gray-100 text-gray-900 hover:bg-gray-200">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 text-white hover:bg-red-700"
             >
               Delete
             </AlertDialogAction>

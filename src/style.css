@@ -70,3 +70,19 @@
 .dark [data-radix-dialog-content] {
   background-color: rgb(17, 24, 39) !important;
 }
+
+/* AlertDialog overlay and content styles for better visibility */
+[data-radix-alert-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-radix-alert-dialog-content] {
+  background-color: white !important;
+  opacity: 1 !important;
+}
+
+/* Ensure text is dark and readable in AlertDialog */
+[data-radix-alert-dialog-content] h2,
+[data-radix-alert-dialog-content] p {
+  color: #1f2937 !important;
+}

@@ -12,7 +12,7 @@ import VaccinationTrackerPage from '@/pages/health/VaccinationTrackerPage'
 import PrescriptionManagerPage from '@/pages/health/PrescriptionManagerPage'
 import VetDirectoryPage from '@/pages/health/VetDirectoryPage'
 import SuppliesPage from '@/pages/supplies/SuppliesPage'
-import ShopPage from '@/pages/ShopPage'
+import ShopPage from '@/pages/shop/ShopPage'
 import SettingsPage from '@/pages/SettingsPage'
 import NotificationPreferencesPage from '@/pages/settings/NotificationPreferencesPage'
 
