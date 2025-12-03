@@ -3,8 +3,9 @@ import type { AffiliateProduct } from '@/types/affiliate'
 
 export interface UserContext {
   userId: string
+  pets: Array<{ id: string; name: string; species: string }> // Full pet objects
   petTypes: ('dog' | 'cat' | 'both')[]
-  petNames: string[]
+  petNames: string[] // Keep for backward compatibility
   supplyCategories: string[]
   trackedProductNames: string[]
   hasHealthRecords: boolean
@@ -21,6 +22,13 @@ interface ProductScore {
  */
 function calculateRelevanceScore(product: AffiliateProduct, userContext: UserContext): number {
   let score = 0
+
+  // CRITICAL: Pet type mismatch penalty (-1000 points, effectively filters out)
+  // This ensures cat products NEVER appear for dog owners and vice versa
+  if (!userContext.petTypes.includes(product.pet_type) && product.pet_type !== 'both') {
+    score -= 1000
+    return score // Early return - no point calculating other scores
+  }
 
   // Pet type match (+10 points)
   if (userContext.petTypes.includes(product.pet_type) || product.pet_type === 'both') {
@@ -57,11 +65,16 @@ function calculateRelevanceScore(product: AffiliateProduct, userContext: UserCon
  * Get human-readable recommendation reason
  */
 export function getRecommendationReason(product: AffiliateProduct, userContext: UserContext): string {
-  // Pet type match
-  if (userContext.petTypes.includes(product.pet_type) || product.pet_type === 'both') {
-    const petName = userContext.petNames[0] || 'your pet'
-    const petTypeLabel = product.pet_type === 'dog' ? 'dog' : product.pet_type === 'cat' ? 'cat' : 'pet'
-    return `Recommended for ${petName} (${petTypeLabel})`
+  // Find the pet that matches this product's pet_type
+  const matchingPet = userContext.pets.find(pet => {
+    if (product.pet_type === 'both') return true
+    return pet.species === product.pet_type
+  })
+
+  // Pet type match - use the CORRECT pet's name
+  if (matchingPet) {
+    const species = product.pet_type === 'both' ? matchingPet.species : product.pet_type
+    return `Recommended for ${matchingPet.name} (${species})`
   }
 
   // Category match
@@ -72,8 +85,8 @@ export function getRecommendationReason(product: AffiliateProduct, userContext: 
 
   // Health needs match
   if (userContext.hasHealthRecords && ['Medication', 'Supplements'].includes(product.category)) {
-    const petName = userContext.petNames[0] || 'your pet'
-    return `May help with ${petName}'s health needs`
+    const firstPet = userContext.pets[0]
+    return `May help with ${firstPet?.name || 'your pet'}'s health needs`
   }
 
   // Featured products
@@ -90,13 +103,22 @@ export function getRecommendationReason(product: AffiliateProduct, userContext: 
  */
 async function getUserContext(userId: string): Promise<UserContext> {
   // Fetch user's pets
-  const { data: pets } = await supabase
+  const { data: petsData } = await supabase
     .from('pets')
     .select('id, name, species')
     .eq('user_id', userId)
 
-  const petTypes = pets?.map((p: any) => p.species.toLowerCase() as 'dog' | 'cat') || []
-  const petNames = pets?.map((p: any) => p.name) || []
+  // Map to full pet objects with normalized species
+  const pets = petsData?.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    species: p.species.toLowerCase()
+  })) || []
+
+  // Get unique pet types and always include 'both' for products that work for all pets
+  const userPetTypes = pets.map(p => p.species as 'dog' | 'cat')
+  const petTypes = [...new Set([...userPetTypes, 'both' as const])] as ('dog' | 'cat' | 'both')[]
+  const petNames = pets.map(p => p.name)
 
   // Fetch user's supply schedules
   const { data: supplies } = await supabase
@@ -118,6 +140,7 @@ async function getUserContext(userId: string): Promise<UserContext> {
 
   return {
     userId,
+    pets,
     petTypes,
     petNames,
     supplyCategories,
@@ -138,10 +161,13 @@ export async function getRecommendedProducts(userId: string): Promise<ProductSco
     return []
   }
 
-  // Fetch all products
+  // CRITICAL FIX: Strictly filter products by pet type at database level
+  // Only fetch products that match the user's pet types
+  // Example: User has dog → fetch only 'dog' and 'both' products
   const { data: products, error } = await supabase
     .from('affiliate_products')
     .select('*')
+    .in('pet_type', userContext.petTypes)
 
   if (error) {
     console.error('Error fetching products:', error)
@@ -159,7 +185,7 @@ export async function getRecommendedProducts(userId: string): Promise<ProductSco
     reason: getRecommendationReason(product as AffiliateProduct, userContext),
   }))
 
-  // Filter out products with negative scores (already tracked)
+  // Filter out products with negative scores (already tracked or mismatched)
   const filteredProducts = scoredProducts.filter(p => p.score > 0)
 
   // Sort by score (descending)
