@@ -2,6 +2,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { StatsCards } from '@/components/dashboard/StatsCards'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
+import RecommendedProducts from '@/components/shop/RecommendedProducts'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -32,8 +33,13 @@ export default function DashboardPage() {
         <QuickActions />
       </div>
 
-      {/* Recent Activity */}
+      {/* Recommended Products */}
       <div className="animate-slide-up" style={{ animationDelay: '300ms' }}>
+        <RecommendedProducts limit={4} source="dashboard" />
+      </div>
+
+      {/* Recent Activity */}
+      <div className="animate-slide-up" style={{ animationDelay: '400ms' }}>
         <RecentActivity />
       </div>
 

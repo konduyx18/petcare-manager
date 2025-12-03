@@ -70,26 +70,32 @@ export function useTrackAffiliateClick() {
 
   return useMutation({
     mutationFn: async ({
-      productId,
+      productId: _productId, // Renamed with underscore prefix to indicate intentionally unused
       affiliate,
       supplyScheduleId,
+      source,
     }: {
-      productId: string
+      productId?: string
       affiliate: 'chewy' | 'amazon' | 'petco' | 'other'
       supplyScheduleId?: string | null
+      source?: 'dashboard' | 'shop_page' | 'supply_page'
     }) => {
       if (!user?.id) {
         console.warn('User not authenticated, skipping click tracking')
         return
       }
 
+      // Note: productId is kept in the signature for API consistency but not used
+      // The table schema only has supply_schedule_id, not product_id
+      // For shop products, supply_schedule_id will be null
       const { error } = await supabase
         .from('affiliate_clicks')
         .insert({
           user_id: user.id,
-          product_id: productId,
           supply_schedule_id: supplyScheduleId || null,
           affiliate_name: affiliate,
+          recommendation_source: source || null,
+          // clicked_at is auto-set by database default
         } as any)
 
       if (error) {

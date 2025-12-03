@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { useAffiliateProducts, useFeaturedProducts } from '@/hooks/useAffiliateProducts'
 import ProductCard from '@/components/shop/ProductCard'
+import RecommendedProducts from '@/components/shop/RecommendedProducts'
 import type { ProductFilters } from '@/types/affiliate'
 
 const categories = [
@@ -203,6 +204,9 @@ export default function ShopPage() {
           )}
         </div>
       </Card>
+
+      {/* Recommended Products */}
+      <RecommendedProducts limit={6} source="shop_page" />
 
       {/* Products Grid */}
       <div>
