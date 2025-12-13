@@ -121,13 +121,16 @@ async function getUserContext(userId: string): Promise<UserContext> {
   const petNames = pets.map(p => p.name)
 
   // Fetch user's supply schedules
-  const { data: supplies } = await supabase
-    .from('supply_schedules')
-    .select('category, product_name, pets!inner(user_id)')
-    .eq('pets.user_id', userId)
+  const petIds = pets.map(p => p.id)
+  const { data: supplies } = petIds.length
+    ? await supabase
+        .from('supply_schedules')
+        .select('category, product_name, pet_id')
+        .in('pet_id', petIds)
+    : { data: [] as any[] }
 
-  const supplyCategories = supplies?.map((s: any) => s.category) || []
-  const trackedProductNames = supplies?.map((s: any) => s.product_name) || []
+  const supplyCategories = (supplies || []).map((s: any) => s.category)
+  const trackedProductNames = (supplies || []).map((s: any) => s.product_name)
 
   // Check if user has health records
   const { data: healthRecords } = await supabase
@@ -156,6 +159,8 @@ export async function getRecommendedProducts(userId: string): Promise<ProductSco
   // Get user context
   const userContext = await getUserContext(userId)
 
+  console.log('🔍 Tracked supplies:', userContext.trackedProductNames)
+
   // If user has no pets, return empty array
   if (userContext.petTypes.length === 0) {
     return []
@@ -178,8 +183,31 @@ export async function getRecommendedProducts(userId: string): Promise<ProductSco
     return []
   }
 
+  // Filter out tracked products BEFORE scoring
+  const availableProducts = products.filter((product) => {
+    const productNameLower = (product as any).name.toLowerCase().trim()
+
+    const isTracked = userContext.trackedProductNames.some((trackedName) => {
+      const trackedLower = trackedName.toLowerCase().trim()
+
+      const exactMatch = productNameLower === trackedLower
+      const productContainsTracked = productNameLower.includes(trackedLower)
+      const trackedContainsProduct = trackedLower.includes(productNameLower)
+
+      if (exactMatch || productContainsTracked || trackedContainsProduct) {
+        console.log(`❌ FILTERED OUT: "${(product as any).name}" (matches tracked: "${trackedName}")`)
+        return true
+      }
+      return false
+    })
+
+    return !isTracked
+  })
+
+  console.log(`✅ After filtering: ${availableProducts.length} products (from ${products.length} total)`) 
+
   // Score each product
-  const scoredProducts: ProductScore[] = products.map(product => ({
+  const scoredProducts: ProductScore[] = availableProducts.map(product => ({
     product: product as AffiliateProduct,
     score: calculateRelevanceScore(product as AffiliateProduct, userContext),
     reason: getRecommendationReason(product as AffiliateProduct, userContext),

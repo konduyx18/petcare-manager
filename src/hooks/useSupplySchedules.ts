@@ -172,6 +172,7 @@ export function useAddSupply() {
     onSuccess: (data) => {
       console.log('✅ Mutation succeeded!', data)
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['recommended-products'] })
       toast.success(`Added ${data.product_name} to supplies`)
     },
     onError: (error: Error) => {
@@ -239,6 +240,7 @@ export function useUpdateSupply() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['recommended-products'] })
       toast.success(`Updated ${data.product_name}`)
     },
     onError: (error: Error) => {
@@ -266,6 +268,7 @@ export function useDeleteSupply() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['recommended-products'] })
       toast.success(`Deleted ${data.product_name}`)
     },
     onError: (error: Error) => {
@@ -309,6 +312,7 @@ export function useMarkAsOrdered() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['recommended-products'] })
       const formattedDate = new Date(data.next_reminder_date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
