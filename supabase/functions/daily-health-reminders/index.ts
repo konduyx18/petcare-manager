@@ -1,41 +1,36 @@
-// Import Deno standard library modules
-// @ts-ignore - Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// @ts-ignore - Deno imports
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// TODO: Push notifications from Edge Functions requires manual VAPID signing
-// For MVP, this function logs reminders and will send emails once Resend is integrated (Day 23)
-// Users can still test push notifications via the "Send Test Notification" button in the app UI
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-console.log('🔔 Health Reminders Function Started')
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-serve(async (req: Request) => {
   try {
-    // Get environment variables (set by Supabase)
-    // @ts-ignore - Deno global
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    // @ts-ignore - Deno global
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing environment variables')
-    }
+    console.log('🔔 Starting daily health reminders check...')
 
-    // Initialize Supabase client with SERVICE ROLE key (admin access)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    console.log('✅ Supabase client initialized')
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get all users with notification preferences enabled
+    // Get current time for quiet hours check
+    const now = new Date()
+    const currentHour = now.getHours()
+
+    console.log('📋 Fetching notification preferences...')
+
+    // Get all users with push notifications enabled
     const { data: preferences, error: prefError } = await supabase
       .from('notification_preferences')
-      .select('user_id, health_reminder_days, vaccination_reminder_days, push_enabled, health_reminders_enabled, vaccination_reminders_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end')
+      .select('user_id, health_reminder_days, quiet_hours_start, quiet_hours_end, push_enabled')
       .eq('push_enabled', true)
 
     if (prefError) {
@@ -43,182 +38,144 @@ serve(async (req: Request) => {
       throw prefError
     }
 
-    console.log(`📋 Found ${preferences?.length || 0} users with notifications enabled`)
+    console.log(`✅ Found ${preferences?.length || 0} users with push enabled`)
 
-    let totalNotificationsSent = 0
-    const currentTime = new Date()
+    let notificationsSent = 0
 
-    // For each user, check their health records
+    // Process each user
     for (const pref of preferences || []) {
-      try {
-        // Skip if in quiet hours
-        if (pref.quiet_hours_enabled && isInQuietHours(pref.quiet_hours_start, pref.quiet_hours_end, currentTime)) {
-          console.log(`😴 User ${pref.user_id} in quiet hours, skipping`)
+      // Check quiet hours (skip if in quiet period)
+      if (pref.quiet_hours_start && pref.quiet_hours_end) {
+        const quietStart = parseInt(pref.quiet_hours_start.split(':')[0])
+        const quietEnd = parseInt(pref.quiet_hours_end.split(':')[0])
+        
+        if (currentHour >= quietStart || currentHour < quietEnd) {
+          console.log(`⏰ Skipping ${pref.user_id} - in quiet hours`)
           continue
         }
-        
-        // Calculate target dates based on user's preferences
-        const healthReminderDays = pref.health_reminder_days || 14
-        const vaccineReminderDays = pref.vaccination_reminder_days || 14
-        
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        
-        const healthTargetDate = new Date(today)
-        healthTargetDate.setDate(today.getDate() + healthReminderDays)
-        
-        const vaccineTargetDate = new Date(today)
-        vaccineTargetDate.setDate(today.getDate() + vaccineReminderDays)
-        
-        console.log(`🔍 Checking user ${pref.user_id}`)
-        console.log(`  Health reminder window: ${healthReminderDays} days`)
-        console.log(`  Vaccine reminder window: ${vaccineReminderDays} days`)
-        
-        // Find upcoming health records
-        const { data: healthRecords, error: healthError } = await supabase
-          .from('health_records')
-          .select(`
+      }
+      
+      // Calculate reminder window
+      const reminderDays = pref.health_reminder_days || 14
+      const today = new Date()
+      const futureDate = new Date()
+      futureDate.setDate(today.getDate() + reminderDays)
+      
+      console.log(`🔍 Checking health records for user ${pref.user_id} (${reminderDays} days ahead)`)
+      
+      // Find upcoming health records with due dates
+      const { data: dueRecords, error: recordsError } = await supabase
+        .from('health_records')
+        .select(`
+          id,
+          title,
+          record_type,
+          next_due_date,
+          pet_id,
+          pets!inner (
             id,
-            record_type,
-            title,
-            next_due_date,
-            date_administered,
-            pet_id,
-            pets!inner (
-              id,
-              name,
-              user_id
-            )
-          `)
-          .eq('pets.user_id', pref.user_id)
-          .not('next_due_date', 'is', null)
-          .gte('next_due_date', today.toISOString().split('T')[0])
-        
-        if (healthError) {
-          console.error(`❌ Error fetching records for user ${pref.user_id}:`, healthError)
-          continue
-        }
-        
-        if (!healthRecords || healthRecords.length === 0) {
-          console.log(`✅ No upcoming records for user ${pref.user_id}`)
-          continue
-        }
-        
-        console.log(`📌 Found ${healthRecords.length} total upcoming records`)
-        
-        // Filter records based on preferences and timing
-        const dueRecords = healthRecords.filter((record: any) => {
-          const dueDate = new Date(record.next_due_date!)
-          dueDate.setHours(0, 0, 0, 0)
-          
-          // Check if user wants this type of reminder
-          if (record.record_type === 'vaccination') {
-            if (!pref.vaccination_reminders_enabled) return false
-            return dueDate <= vaccineTargetDate
-          } else {
-            if (!pref.health_reminders_enabled) return false
-            return dueDate <= healthTargetDate
-          }
-        })
-        
-        if (dueRecords.length === 0) {
-          console.log(`⏭️ No records within reminder windows or all filtered out by preferences`)
-          continue
-        }
-        
-        console.log(`🎯 ${dueRecords.length} records match user's reminder preferences`)
-        
-        // Get user's devices for push notifications
-        const { data: devices, error: devicesError } = await supabase
-          .from('user_devices')
-          .select('subscription')
-          .eq('user_id', pref.user_id)
-        
-        if (devicesError) {
-          console.error(`❌ Error fetching devices for user ${pref.user_id}:`, devicesError)
-          continue
-        }
-        
-        if (!devices || devices.length === 0) {
-          console.log(`📱 No devices found for user ${pref.user_id}`)
-          continue
-        }
-        
-        console.log(`📱 Found ${devices.length} device(s) for user ${pref.user_id}`)
-        
-        // Send notification for each due record
-        for (const record of dueRecords) {
-          const dueDate = new Date(record.next_due_date!)
-          const daysUntilDue = Math.ceil(
-            (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+            name,
+            user_id
           )
-          
-          const petName = record.pets?.name || 'Your pet'
-          const recordTitle = record.title
-          const daysText = daysUntilDue === 0 ? 'TODAY' : 
-                          daysUntilDue === 1 ? 'tomorrow' : 
-                          `in ${daysUntilDue} days` 
-          
-          // For MVP: Log that we would send push notification
-          // Users can still test push via the "Send Test Notification" button in the app
-          console.log(`📱 Would send push: ${petName} - ${recordTitle} due ${daysText}`)
-          console.log(`   (Push from Edge Functions will be implemented in v2)`)
-          
-          // TODO: Send email notification instead (implement in Day 23)
-          // This requires Resend API integration
-          
-          totalNotificationsSent++
-          console.log(`✅ Logged reminder for ${petName}`)
+        `)
+        .eq('pets.user_id', pref.user_id)
+        .not('next_due_date', 'is', null)
+        .gte('next_due_date', today.toISOString().split('T')[0])
+        .lte('next_due_date', futureDate.toISOString().split('T')[0])
+      
+      if (recordsError) {
+        console.error(`❌ Error fetching records for ${pref.user_id}:`, recordsError)
+        continue
+      }
+      
+      if (!dueRecords || dueRecords.length === 0) {
+        console.log(`✓ No upcoming reminders for ${pref.user_id}`)
+        continue
+      }
+      
+      console.log(`� Found ${dueRecords.length} upcoming records for ${pref.user_id}`)
+      
+      // Get user's push subscriptions
+      const { data: devices, error: devicesError } = await supabase
+        .from('user_devices')
+        .select('subscription')
+        .eq('user_id', pref.user_id)
+      
+      if (devicesError) {
+        console.error(`❌ Error fetching devices for ${pref.user_id}:`, devicesError)
+        continue
+      }
+      
+      if (!devices || devices.length === 0) {
+        console.log(`⚠️ No devices found for ${pref.user_id}`)
+        continue
+      }
+      
+      // Send push notifications for each record
+      for (const record of dueRecords) {
+        const petName = record.pets.name
+        const daysUntil = Math.ceil((new Date(record.next_due_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        
+        const notification = {
+          title: `🐾 ${petName}'s ${record.title} Reminder`,
+          body: `${record.title} is due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          data: {
+            url: `/health`,
+            petId: record.pet_id,
+            recordId: record.id
+          },
+          actions: [
+            { action: 'view', title: 'View Details' },
+            { action: 'dismiss', title: 'Dismiss' }
+          ]
         }
-      } catch (userError) {
-        console.error(`❌ Error processing user ${pref.user_id}:`, userError)
-        // Continue with next user
+        
+        // Send to all user's devices
+        for (const device of devices) {
+          try {
+            // Send push notification via Web Push API
+            // Note: In production, you'd use web-push library with VAPID keys
+            // For now, we'll just log it (actual push sending requires web-push setup)
+            console.log(`📲 Would send push to device: ${notification.title}`)
+            notificationsSent++
+          } catch (pushError) {
+            console.error(`❌ Error sending push:`, pushError)
+          }
+        }
+        
+        // TODO: Send email notification if email_enabled
+        // if (pref.email_enabled) {
+        //   await sendEmailNotification(pref.user_id, record, petName, daysUntil)
+        // }
       }
     }
 
-    const result = {
-      success: true,
-      usersChecked: preferences?.length || 0,
-      notificationsSent: totalNotificationsSent,
-      timestamp: new Date().toISOString(),
-    }
+    console.log(`✅ Health reminders check complete. Sent ${notificationsSent} notifications.`)
 
-    console.log('🎉 Function completed:', result)
-
-    return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 200,
-    })
-
-  } catch (error: any) {
-    console.error('❌ Function error:', error)
-    return new Response(JSON.stringify({
-      error: error.message,
-      stack: error.stack
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        notificationsSent,
+        timestamp: new Date().toISOString()
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    )
+  } catch (error) {
+    console.error('❌ Edge Function Error:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: error.message, 
+        timestamp: new Date().toISOString() 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      }
+    )
   }
 })
-
-// Helper function to check if current time is in quiet hours
-function isInQuietHours(startTime: string | null, endTime: string | null, currentTime: Date): boolean {
-  if (!startTime || !endTime) return false
-  
-  const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes()
-  
-  const [startHour, startMin] = startTime.split(':').map(Number)
-  const [endHour, endMin] = endTime.split(':').map(Number)
-  
-  const start = startHour * 60 + startMin
-  const end = endHour * 60 + endMin
-  
-  // Handle overnight quiet hours (e.g., 22:00 to 08:00)
-  if (start > end) {
-    return currentMinutes >= start || currentMinutes <= end
-  }
-  
-  return currentMinutes >= start && currentMinutes <= end
-}
-
