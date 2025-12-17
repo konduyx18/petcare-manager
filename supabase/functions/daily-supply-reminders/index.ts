@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔔 Starting daily health reminders check...')
+    console.log('🛒 Starting daily supply reminders check...')
 
     // Initialize Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -31,7 +31,7 @@ serve(async (req) => {
     // Get all users with push notifications enabled
     const { data: preferences, error: prefError } = await supabase
       .from('notification_preferences')
-      .select('user_id, health_reminder_days, quiet_hours_start, quiet_hours_end, push_enabled, email_enabled')
+      .select('user_id, supply_reminder_days, quiet_hours_start, quiet_hours_end, push_enabled, email_enabled')
       .eq('push_enabled', true)
 
     if (prefError) {
@@ -57,21 +57,24 @@ serve(async (req) => {
       }
       
       // Calculate reminder window
-      const reminderDays = pref.health_reminder_days || 14
+      const reminderDays = pref.supply_reminder_days || 3
       const today = new Date()
       const futureDate = new Date()
       futureDate.setDate(today.getDate() + reminderDays)
       
-      console.log(`🔍 Checking health records for user ${pref.user_id} (${reminderDays} days ahead)`)
+      console.log(`🔍 Checking supply schedules for user ${pref.user_id} (${reminderDays} days ahead)`)
       
-      // Find upcoming health records with due dates
-      const { data: dueRecords, error: recordsError } = await supabase
-        .from('health_records')
+      // Find upcoming supply re-orders with reminder dates
+      const { data: dueSupplies, error: suppliesError } = await supabase
+        .from('supply_schedules')
         .select(`
           id,
-          title,
-          record_type,
-          next_due_date,
+          product_name,
+          category,
+          next_reminder_date,
+          last_purchase_date,
+          frequency_days,
+          affiliate_links,
           pet_id,
           pets!inner (
             id,
@@ -80,21 +83,21 @@ serve(async (req) => {
           )
         `)
         .eq('pets.user_id', pref.user_id)
-        .not('next_due_date', 'is', null)
-        .gte('next_due_date', today.toISOString().split('T')[0])
-        .lte('next_due_date', futureDate.toISOString().split('T')[0])
+        .not('next_reminder_date', 'is', null)
+        .gte('next_reminder_date', today.toISOString().split('T')[0])
+        .lte('next_reminder_date', futureDate.toISOString().split('T')[0])
       
-      if (recordsError) {
-        console.error(`❌ Error fetching records for ${pref.user_id}:`, recordsError)
+      if (suppliesError) {
+        console.error(`❌ Error fetching supplies for ${pref.user_id}:`, suppliesError)
         continue
       }
       
-      if (!dueRecords || dueRecords.length === 0) {
-        console.log(`✓ No upcoming reminders for ${pref.user_id}`)
+      if (!dueSupplies || dueSupplies.length === 0) {
+        console.log(`✓ No upcoming re-orders for ${pref.user_id}`)
         continue
       }
       
-      console.log(`� Found ${dueRecords.length} upcoming records for ${pref.user_id}`)
+      console.log(`📬 Found ${dueSupplies.length} upcoming re-orders for ${pref.user_id}`)
       
       // Get user's push subscriptions
       const { data: devices, error: devicesError } = await supabase
@@ -112,25 +115,43 @@ serve(async (req) => {
         continue
       }
       
-      // Send push notifications for each record
-      for (const record of dueRecords) {
-        const petName = record.pets.name
-        const daysUntil = Math.ceil((new Date(record.next_due_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      // Send push notifications for each supply
+      for (const supply of dueSupplies) {
+        const petName = supply.pets.name
+        const daysUntil = Math.ceil((new Date(supply.next_reminder_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // Parse affiliate links
+        const affiliateLinks = supply.affiliate_links || {}
+        const actions = []
+        
+        // Add action buttons for each affiliate link
+        if (affiliateLinks.chewy) {
+          actions.push({ action: 'order_chewy', title: '🛒 Order on Chewy', icon: '/icon-192.png' })
+        }
+        if (affiliateLinks.amazon) {
+          actions.push({ action: 'order_amazon', title: '📦 Order on Amazon', icon: '/icon-192.png' })
+        }
+        if (affiliateLinks.petco) {
+          actions.push({ action: 'order_petco', title: '🏪 Order at Petco', icon: '/icon-192.png' })
+        }
+        
+        // Add dismiss action
+        actions.push({ action: 'dismiss', title: 'Dismiss' })
         
         const notification = {
-          title: `🐾 ${petName}'s ${record.title} Reminder`,
-          body: `${record.title} is due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`,
+          title: `🛒 Time to re-order ${supply.product_name}!`,
+          body: `${petName} needs more ${supply.product_name}. You last bought this ${Math.floor((Date.now() - new Date(supply.last_purchase_date).getTime()) / (1000 * 60 * 60 * 24))} days ago.`,
           icon: '/icon-192.png',
           badge: '/icon-192.png',
           data: {
-            url: `/health`,
-            petId: record.pet_id,
-            recordId: record.id
+            url: `/supplies`,
+            petId: supply.pet_id,
+            supplyId: supply.id,
+            affiliateLinks: affiliateLinks
           },
-          actions: [
-            { action: 'view', title: 'View Details' },
-            { action: 'dismiss', title: 'Dismiss' }
-          ]
+          actions: actions,
+          requireInteraction: true, // Keep notification visible until user acts
+          tag: `supply-${supply.id}` // Prevents duplicate notifications
         }
         
         // Send to all user's devices
@@ -172,6 +193,33 @@ serve(async (req) => {
               return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
             }
             
+            // Build affiliate links HTML
+            let affiliateLinksHtml = ''
+            if (affiliateLinks && (affiliateLinks.chewy || affiliateLinks.amazon || affiliateLinks.petco)) {
+              affiliateLinksHtml = `
+    <div style="margin-bottom: 25px;">
+      <h3 style="color: #374151; font-size: 18px; margin-bottom: 15px;">Order Now:</h3>
+      <div>
+        ${affiliateLinks.chewy ? `
+        <a href="${affiliateLinks.chewy}" style="display: block; margin-bottom: 10px; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; text-align: center;">
+          🐶 Order on Chewy
+        </a>
+        ` : ''}
+        ${affiliateLinks.amazon ? `
+        <a href="${affiliateLinks.amazon}" style="display: block; margin-bottom: 10px; background-color: #ff9900; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; text-align: center;">
+          📦 Order on Amazon
+        </a>
+        ` : ''}
+        ${affiliateLinks.petco ? `
+        <a href="${affiliateLinks.petco}" style="display: block; margin-bottom: 10px; background-color: #dc2626; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; text-align: center;">
+          🏪 Order at Petco
+        </a>
+        ` : ''}
+      </div>
+    </div>
+              `
+            }
+            
             // Build HTML email
             const html = `
 <!DOCTYPE html>
@@ -179,43 +227,41 @@ serve(async (req) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health Reminder</title>
+  <title>Supply Reminder</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
   <div style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
     <div style="text-align: center; margin-bottom: 30px;">
-      <h1 style="color: #10b981; margin: 0; font-size: 28px;">🐾 PetCare Reminder</h1>
+      <h1 style="color: #f59e0b; margin: 0; font-size: 28px;">🛒 PetCare Reminder</h1>
     </div>
     
-    <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 4px; margin-bottom: 25px;">
-      <h2 style="color: #059669; margin-top: 0; font-size: 22px;">${petName}'s ${record.title}</h2>
+    <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 4px; margin-bottom: 25px;">
+      <h2 style="color: #d97706; margin-top: 0; font-size: 22px;">Time to reorder ${supply.product_name}!</h2>
       <p style="font-size: 16px; margin: 10px 0;">
-        <strong>Due Date:</strong> ${formatDate(record.next_due_date)}
+        <strong>For:</strong> ${petName}
       </p>
-      <p style="font-size: 16px; margin: 10px 0; color: #dc2626;">
-        <strong>⚠️ Due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}!</strong>
+      <p style="font-size: 16px; margin: 10px 0;">
+        <strong>Last Purchased:</strong> ${formatDate(supply.last_purchase_date)} (${Math.floor((Date.now() - new Date(supply.last_purchase_date).getTime()) / (1000 * 60 * 60 * 24))} days ago)
+      </p>
+      <p style="font-size: 16px; margin: 10px 0;">
+        <strong>Next Reminder:</strong> ${formatDate(supply.next_reminder_date)}
       </p>
     </div>
     
-    <div style="margin-bottom: 25px;">
-      <h3 style="color: #374151; font-size: 18px;">Details:</h3>
-      <p style="font-size: 14px; color: #6b7280;">
-        <strong>Record Type:</strong> ${record.record_type}
-      </p>
-    </div>
+    ${affiliateLinksHtml}
     
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${Deno.env.get('VITE_APP_URL') || 'http://localhost:5173'}/health" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: bold; font-size: 16px;">
+      <a href="${Deno.env.get('VITE_APP_URL') || 'http://localhost:5173'}/supplies" style="display: inline-block; background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: bold; font-size: 16px;">
         View in App
       </a>
     </div>
     
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
       <p style="font-size: 12px; color: #9ca3af; margin: 5px 0;">
-        You're receiving this because you enabled health reminders in PetCare Manager.
+        You're receiving this because you enabled supply reminders in PetCare Manager.
       </p>
       <p style="font-size: 12px; color: #9ca3af; margin: 5px 0;">
-        <a href="${Deno.env.get('VITE_APP_URL') || 'http://localhost:5173'}/settings/notifications" style="color: #10b981; text-decoration: none;">Update your notification preferences</a>
+        <a href="${Deno.env.get('VITE_APP_URL') || 'http://localhost:5173'}/settings/notifications" style="color: #f59e0b; text-decoration: none;">Update your notification preferences</a>
       </p>
     </div>
   </div>
@@ -226,14 +272,14 @@ serve(async (req) => {
             const { data: emailData, error: emailError } = await resend.emails.send({
               from: 'PetCare Reminders <onboarding@resend.dev>',
               to: [user.email],
-              subject: `🐾 ${petName}'s ${record.title} is due in ${daysUntil} days`,
+              subject: `🛒 Time to reorder ${supply.product_name} for ${petName}`,
               html,
             })
             
             if (emailError) {
               console.error(`❌ Failed to send email to ${user.email}:`, emailError)
             } else {
-              console.log(`📧 Email sent to ${user.email} for ${record.title}`)
+              console.log(`📧 Email sent to ${user.email} for ${supply.product_name}`)
               notificationsSent++
             }
           } catch (emailError) {
@@ -243,7 +289,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ Health reminders check complete. Sent ${notificationsSent} notifications.`)
+    console.log(`✅ Supply reminders check complete. Sent ${notificationsSent} notifications.`)
 
     return new Response(
       JSON.stringify({ 
