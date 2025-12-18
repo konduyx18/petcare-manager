@@ -7,6 +7,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function isInQuietHours(currentTime: string, startTime: string | null, endTime: string | null): boolean {
+  if (!startTime || !endTime) return false
+  
+  // Convert time strings to minutes since midnight for easier comparison
+  const [currentHour, currentMin] = currentTime.split(':').map(Number)
+  const [startHour, startMin] = startTime.split(':').map(Number)
+  const [endHour, endMin] = endTime.split(':').map(Number)
+  
+  const currentMinutes = currentHour * 60 + currentMin
+  const startMinutes = startHour * 60 + startMin
+  const endMinutes = endHour * 60 + endMin
+  
+  if (startMinutes < endMinutes) {
+    // Same day quiet hours (e.g., 02:00 - 08:00)
+    // User is in quiet hours if current time is BETWEEN start and end
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes
+  } else {
+    // Spans midnight (e.g., 22:00 - 08:00)
+    // User is in quiet hours if current time is AFTER start OR BEFORE end
+    return currentMinutes >= startMinutes || currentMinutes <= endMinutes
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -25,6 +48,8 @@ serve(async (req) => {
     // Get current time for quiet hours check
     const now = new Date()
     const currentHour = now.getHours()
+    const currentMin = now.getMinutes()
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`
 
     console.log('📋 Fetching notification preferences...')
 
@@ -46,14 +71,16 @@ serve(async (req) => {
     // Process each user
     for (const pref of preferences || []) {
       // Check quiet hours (skip if in quiet period)
-      if (pref.quiet_hours_start && pref.quiet_hours_end) {
-        const quietStart = parseInt(pref.quiet_hours_start.split(':')[0])
-        const quietEnd = parseInt(pref.quiet_hours_end.split(':')[0])
-        
-        if (currentHour >= quietStart || currentHour < quietEnd) {
-          console.log(`⏰ Skipping ${pref.user_id} - in quiet hours`)
-          continue
-        }
+      console.log(`⏰ Checking quiet hours for user ${pref.user_id}:`)
+      console.log(`   Current time: ${currentTime}`)
+      console.log(`   Quiet hours: ${pref.quiet_hours_start || 'none'} - ${pref.quiet_hours_end || 'none'}`)
+      console.log(`   Is in quiet hours: ${isInQuietHours(currentTime, pref.quiet_hours_start, pref.quiet_hours_end)}`)
+      
+      if (isInQuietHours(currentTime, pref.quiet_hours_start, pref.quiet_hours_end)) {
+        console.log(`❌ Skipping ${pref.user_id} - in quiet hours`)
+        continue
+      } else {
+        console.log(`✅ Proceeding with notifications for ${pref.user_id}`)
       }
       
       // Calculate reminder window
@@ -149,10 +176,14 @@ serve(async (req) => {
         // Send email notification if email_enabled
         if (pref.email_enabled) {
           try {
-            // Get user email from auth.users
-            const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(pref.user_id)
+            // Get user email from profiles
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('email')
+              .eq('id', pref.user_id)
+              .single()
             
-            if (userError || !user?.email) {
+            if (profileError || !profile?.email) {
               console.log(`⚠️ No email found for user ${pref.user_id}`)
               continue
             }
@@ -225,15 +256,15 @@ serve(async (req) => {
             
             const { data: emailData, error: emailError } = await resend.emails.send({
               from: 'PetCare Reminders <onboarding@resend.dev>',
-              to: [user.email],
+              to: [profile.email],
               subject: `🐾 ${petName}'s ${record.title} is due in ${daysUntil} days`,
               html,
             })
             
             if (emailError) {
-              console.error(`❌ Failed to send email to ${user.email}:`, emailError)
+              console.error(`❌ Failed to send email to ${profile.email}:`, emailError)
             } else {
-              console.log(`📧 Email sent to ${user.email} for ${record.title}`)
+              console.log(`📧 Email sent to ${profile.email} for ${record.title}`)
               notificationsSent++
             }
           } catch (emailError) {
