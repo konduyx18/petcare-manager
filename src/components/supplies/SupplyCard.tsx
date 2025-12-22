@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useMarkAsOrdered, useDeleteSupply, type SupplySchedule } from '@/hooks/useSupplySchedules'
-import { useTrackAffiliateClick, handleAffiliateClick } from '@/hooks/useTrackAffiliateClick'
+import { useTrackAffiliateClick } from '@/hooks/useAffiliateTracking'
 import { 
   getCategoryColor, 
   formatFrequency, 
@@ -36,10 +36,19 @@ import { format } from 'date-fns'
 import SupplyForm from '@/components/supplies/SupplyForm'
 
 interface SupplyCardProps {
-  supply: SupplySchedule
+  supply: Omit<SupplySchedule, 'updated_at'> & {
+    updated_at?: string
+    pets?: {
+      id: string
+      name: string
+      photo_url: string | null
+    }
+  }
+  onEdit?: (supply: SupplySchedule) => void
+  onDelete?: (id: string) => void
 }
 
-export default function SupplyCard({ supply }: SupplyCardProps) {
+export default function SupplyCard({ supply, onEdit, onDelete }: SupplyCardProps) {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   
@@ -56,10 +65,14 @@ export default function SupplyCard({ supply }: SupplyCardProps) {
   }
 
   const handleDelete = () => {
-    deleteSupply.mutate({
-      id: supply.id,
-      product_name: supply.product_name
-    })
+    if (onDelete) {
+      onDelete(supply.id)
+    } else {
+      deleteSupply.mutate({
+        id: supply.id,
+        product_name: supply.product_name
+      })
+    }
     setShowDeleteDialog(false)
   }
 
@@ -67,7 +80,11 @@ export default function SupplyCard({ supply }: SupplyCardProps) {
     url: string, 
     affiliate: 'chewy' | 'amazon' | 'petco'
   ) => {
-    handleAffiliateClick(url, affiliate, supply.id, trackClick)
+    trackClick.mutate({
+      supply_schedule_id: supply.id,
+      affiliate_name: affiliate,
+      affiliate_url: url
+    })
   }
 
   const petName = supply.pets?.name || 'Unknown Pet'
@@ -254,8 +271,11 @@ export default function SupplyCard({ supply }: SupplyCardProps) {
             </div>
           </DialogHeader>
           <SupplyForm 
-            supply={supply} 
-            onSuccess={() => setShowEditDialog(false)}
+            initialData={supply as SupplySchedule} 
+            onSuccess={() => {
+              setShowEditDialog(false)
+              onEdit?.(supply as SupplySchedule)
+            }}
             onCancel={() => setShowEditDialog(false)}
           />
         </DialogContent>

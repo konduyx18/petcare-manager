@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Package, Plus, AlertCircle } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Package, Plus, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePets } from '@/hooks/usePets'
-import { useSupplySchedules } from '@/hooks/useSupplySchedules'
+import { useSupplySchedules, type SupplySchedule } from '@/hooks/useSupplySchedules'
 import SupplyCard from '@/components/supplies/SupplyCard'
 import SupplyForm from '@/components/supplies/SupplyForm'
 
@@ -20,6 +21,7 @@ export default function SuppliesPage() {
   const [selectedPetId, setSelectedPetId] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [collapsedPets, setCollapsedPets] = useState<Set<string>>(new Set())
 
   const { data: pets } = usePets()
   const { data: supplies, isLoading, error, refetch } = useSupplySchedules(
@@ -32,12 +34,39 @@ export default function SuppliesPage() {
     return supply.category === selectedCategory
   }) || []
 
+  // Group supplies by pet
+  const suppliesByPet = useMemo(() => {
+    const grouped = new Map<string, SupplySchedule[]>()
+    
+    filteredSupplies.forEach(supply => {
+      const petId = supply.pet_id
+      if (!grouped.has(petId)) {
+        grouped.set(petId, [])
+      }
+      grouped.get(petId)!.push(supply)
+    })
+    
+    return grouped
+  }, [filteredSupplies])
+
   // Calculate stats
   const totalSupplies = filteredSupplies.length
   const dueSoon = filteredSupplies.filter(s => 
     s.reminderStatus === 'urgent' || s.reminderStatus === 'soon'
   ).length
   const overdue = filteredSupplies.filter(s => s.reminderStatus === 'overdue').length
+
+  const togglePetCollapse = (petId: string) => {
+    setCollapsedPets(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(petId)) {
+        newSet.delete(petId)
+      } else {
+        newSet.add(petId)
+      }
+      return newSet
+    })
+  }
 
   return (
     <div className="container max-w-7xl mx-auto px-4 py-8 space-y-8">
@@ -118,13 +147,12 @@ export default function SuppliesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="Food">Food</SelectItem>
-              <SelectItem value="Medication">Medication</SelectItem>
-              <SelectItem value="Treats">Treats</SelectItem>
-              <SelectItem value="Grooming">Grooming</SelectItem>
-              <SelectItem value="Toys">Toys</SelectItem>
-              <SelectItem value="Supplements">Supplements</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
+              <SelectItem value="Food">🍖 Food</SelectItem>
+              <SelectItem value="Medicine">💊 Medicine</SelectItem>
+              <SelectItem value="Treats">🦴 Treats</SelectItem>
+              <SelectItem value="Toys">🎾 Toys</SelectItem>
+              <SelectItem value="Grooming">✂️ Grooming</SelectItem>
+              <SelectItem value="Other">📦 Other</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -199,18 +227,76 @@ export default function SuppliesPage() {
         </Card>
       )}
 
-      {/* Supply Cards Grid */}
+      {/* Supply Cards Grouped by Pet */}
       {!isLoading && !error && filteredSupplies.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
-          {filteredSupplies.map(supply => (
-            <div 
-              key={supply.id}
-              className="animate-in slide-in-from-bottom-4 duration-500"
-              style={{ animationDelay: `${filteredSupplies.indexOf(supply) * 50}ms` }}
-            >
-              <SupplyCard supply={supply} />
-            </div>
-          ))}
+        <div className="space-y-6">
+          {Array.from(suppliesByPet.entries()).map(([petId, petSupplies]) => {
+            const pet = petSupplies[0]?.pets
+            if (!pet) return null
+
+            const isCollapsed = collapsedPets.has(petId)
+            const petOverdue = petSupplies.filter(s => s.reminderStatus === 'overdue').length
+            const petDueSoon = petSupplies.filter(s => s.reminderStatus === 'urgent' || s.reminderStatus === 'soon').length
+
+            return (
+              <div key={petId} className="space-y-4">
+                {/* Pet Header */}
+                <button
+                  onClick={() => togglePetCollapse(petId)}
+                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg hover:from-primary/10 hover:to-primary/15 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12 border-2 border-primary/20">
+                      <AvatarImage src={pet.photo_url || undefined} alt={pet.name} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                        {pet.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-left">
+                      <h2 className="text-xl font-bold text-foreground">{pet.name}</h2>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-sm text-muted-foreground">
+                          {petSupplies.length} {petSupplies.length === 1 ? 'supply' : 'supplies'}
+                        </span>
+                        {petOverdue > 0 && (
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                            {petOverdue} overdue
+                          </span>
+                        )}
+                        {petDueSoon > 0 && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                            {petDueSoon} due soon
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isCollapsed ? (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Pet's Supply Cards */}
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                    {petSupplies.map((supply, index) => (
+                      <div 
+                        key={supply.id}
+                        className="animate-in slide-in-from-bottom-4 duration-500"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <SupplyCard supply={supply} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

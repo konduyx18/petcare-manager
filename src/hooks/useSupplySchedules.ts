@@ -14,7 +14,7 @@ export interface SupplySchedule {
   user_id: string
   pet_id: string
   product_name: string
-  category: 'Food' | 'Medication' | 'Treats' | 'Grooming' | 'Toys' | 'Supplements' | 'Other'
+  category: 'Food' | 'Medicine' | 'Treats' | 'Toys' | 'Grooming' | 'Other'
   frequency_days: number
   last_purchase_date: string
   next_reminder_date: string
@@ -24,6 +24,7 @@ export interface SupplySchedule {
     petco?: string
   }
   created_at: string
+  updated_at: string
   pets?: {
     id: string
     name: string
@@ -38,7 +39,7 @@ export interface SupplySchedule {
 interface AddSupplyData {
   pet_id: string
   product_name: string
-  category: 'Food' | 'Medication' | 'Treats' | 'Grooming' | 'Toys' | 'Supplements' | 'Other'
+  category: 'Food' | 'Medicine' | 'Treats' | 'Toys' | 'Grooming' | 'Other'
   frequency_days: number
   last_purchase_date: Date
   affiliate_links?: {

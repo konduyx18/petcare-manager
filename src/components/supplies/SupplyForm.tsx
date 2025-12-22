@@ -12,24 +12,24 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { usePets } from '@/hooks/usePets'
-import { useAddSupply, useUpdateSupply, type SupplySchedule } from '@/hooks/useSupplySchedules'
+import { useAddSupply, useUpdateSupply } from '@/hooks/useSupplySchedules'
 import { cn } from '@/lib/utils'
 import confetti from 'canvas-confetti'
+import type { SupplySchedule } from '@/types/supply'
 
-// Validation schema
+// Extended validation schema with frequency_amount and frequency_unit for better UX
 const supplyFormSchema = z.object({
-  pet_id: z.string().uuid('Please select a pet'),
+  pet_id: z.string().min(1, 'Please select a pet'),
   product_name: z.string()
-    .min(3, 'Product name must be at least 3 characters')
-    .max(100, 'Product name must be less than 100 characters'),
-  category: z.enum(['Food', 'Medication', 'Treats', 'Grooming', 'Toys', 'Supplements', 'Other']),
+    .min(2, 'Product name must be at least 2 characters')
+    .max(50, 'Product name must be less than 50 characters'),
+  category: z.enum(['Food', 'Medicine', 'Treats', 'Toys', 'Grooming', 'Other']),
   frequency_amount: z.number().int().min(1).max(365),
   frequency_unit: z.enum(['days', 'weeks', 'months']),
   last_purchase_date: z.date().refine(
     (date) => {
-      // Compare dates without time (set both to midnight)
       const today = new Date()
-      today.setHours(23, 59, 59, 999) // End of today
+      today.setHours(23, 59, 59, 999)
       return date <= today
     },
     {
@@ -44,18 +44,19 @@ const supplyFormSchema = z.object({
 type SupplyFormData = z.infer<typeof supplyFormSchema>
 
 interface SupplyFormProps {
-  supply?: SupplySchedule
-  onSuccess?: () => void
+  petId?: string
+  initialData?: SupplySchedule
+  onSuccess: () => void
   onCancel?: () => void
 }
 
-export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormProps) {
+export default function SupplyForm({ petId, initialData, onSuccess, onCancel }: SupplyFormProps) {
   const { data: pets, isLoading: petsLoading } = usePets()
   const addSupply = useAddSupply()
   const updateSupply = useUpdateSupply()
   const [showAffiliateLinks, setShowAffiliateLinks] = useState(false)
 
-  const isEditMode = !!supply
+  const isEditMode = !!initialData
 
   // Convert frequency_days to amount and unit for editing
   const getFrequencyDefaults = (frequencyDays?: number) => {
@@ -70,20 +71,20 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
     return { amount: frequencyDays, unit: 'days' as const }
   }
 
-  const frequencyDefaults = getFrequencyDefaults(supply?.frequency_days)
+  const frequencyDefaults = getFrequencyDefaults(initialData?.frequency_days)
 
   const form = useForm<SupplyFormData>({
     resolver: zodResolver(supplyFormSchema),
     defaultValues: {
-      pet_id: supply?.pet_id || '',
-      product_name: supply?.product_name || '',
-      category: supply?.category || 'Food',
+      pet_id: petId || initialData?.pet_id || '',
+      product_name: initialData?.product_name || '',
+      category: initialData?.category || 'Food',
       frequency_amount: frequencyDefaults.amount,
       frequency_unit: frequencyDefaults.unit,
-      last_purchase_date: supply?.last_purchase_date ? new Date(supply.last_purchase_date) : new Date(),
-      affiliate_chewy: supply?.affiliate_links?.chewy || '',
-      affiliate_amazon: supply?.affiliate_links?.amazon || '',
-      affiliate_petco: supply?.affiliate_links?.petco || '',
+      last_purchase_date: initialData?.last_purchase_date ? new Date(initialData.last_purchase_date) : new Date(),
+      affiliate_chewy: initialData?.affiliate_links?.chewy || '',
+      affiliate_amazon: initialData?.affiliate_links?.amazon || '',
+      affiliate_petco: initialData?.affiliate_links?.petco || '',
     },
   })
 
@@ -127,11 +128,11 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
       if (data.affiliate_amazon) affiliate_links.amazon = data.affiliate_amazon
       if (data.affiliate_petco) affiliate_links.petco = data.affiliate_petco
 
-      if (isEditMode) {
+      if (isEditMode && initialData) {
         console.log('Edit mode - calling updateSupply mutation...')
         // Update existing supply
         await updateSupply.mutateAsync({
-          id: supply.id,
+          id: initialData.id,
           pet_id: data.pet_id,
           product_name: data.product_name,
           category: data.category,
@@ -247,11 +248,10 @@ export default function SupplyForm({ supply, onSuccess, onCancel }: SupplyFormPr
                 </FormControl>
                 <SelectContent className="bg-white">
                   <SelectItem value="Food">🍖 Food</SelectItem>
-                  <SelectItem value="Medication">💊 Medication</SelectItem>
+                  <SelectItem value="Medicine">💊 Medicine</SelectItem>
                   <SelectItem value="Treats">🦴 Treats</SelectItem>
-                  <SelectItem value="Grooming">✂️ Grooming</SelectItem>
                   <SelectItem value="Toys">🎾 Toys</SelectItem>
-                  <SelectItem value="Supplements">💪 Supplements</SelectItem>
+                  <SelectItem value="Grooming">✂️ Grooming</SelectItem>
                   <SelectItem value="Other">📦 Other</SelectItem>
                 </SelectContent>
               </Select>
