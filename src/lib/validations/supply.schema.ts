@@ -7,13 +7,10 @@ export const supplyFormSchema = z.object({
     .min(2, 'Product name must be at least 2 characters')
     .max(50, 'Product name must be less than 50 characters'),
   category: z.enum(['Food', 'Medicine', 'Treats', 'Toys', 'Grooming', 'Other'], {
-    required_error: 'Please select a category',
+    message: 'Please select a category',
   }),
   frequency_days: z
-    .number({
-      required_error: 'Frequency is required',
-      invalid_type_error: 'Frequency must be a number',
-    })
+    .number()
     .int('Frequency must be a whole number')
     .min(1, 'Frequency must be at least 1 day')
     .max(365, 'Frequency cannot exceed 365 days'),

@@ -58,7 +58,16 @@ export function useCreateVet() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (newVet: Omit<Vet, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'usage_count'>) => {
+    mutationFn: async (newVet: {
+      clinic_name: string
+      is_primary: boolean
+      vet_name?: string | null
+      phone?: string | null
+      email?: string | null
+      address?: string | null
+      website?: string | null
+      notes?: string | null
+    }) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 

@@ -52,6 +52,7 @@ export function QuickAddVaccineDialog({ open, onOpenChange, preSelectedPetId }: 
     try {
       await createRecord.mutateAsync({
         petId: selectedPetId,
+        pet_id: selectedPetId,
         record_type: 'vaccination',
         title: selectedVaccine.name,
         date_administered: dateAdministered,

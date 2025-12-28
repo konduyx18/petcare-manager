@@ -53,7 +53,7 @@ interface UpdateSupplyData {
   id: string
   pet_id?: string
   product_name?: string
-  category?: 'Food' | 'Medication' | 'Treats' | 'Grooming' | 'Toys' | 'Supplements' | 'Other'
+  category?: 'Food' | 'Medicine' | 'Treats' | 'Toys' | 'Grooming' | 'Other'
   frequency_days?: number
   last_purchase_date?: Date
   affiliate_links?: {
