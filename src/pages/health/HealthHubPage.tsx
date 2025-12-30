@@ -5,14 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { HealthTimeline } from '@/components/health/HealthTimeline'
 import { AddHealthRecordDialog } from '@/components/health/AddHealthRecordDialog'
 import { EditHealthRecordDialog } from '@/components/health/EditHealthRecordDialog'
 import { DeleteHealthRecordDialog } from '@/components/health/DeleteHealthRecordDialog'
 import { useAllHealthRecords } from '@/hooks/useHealthRecords'
 import { usePets } from '@/hooks/usePets'
-import { Plus, Search, Filter, Syringe, Pill, Stethoscope } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Plus, Search, Filter, Syringe, Pill, Stethoscope, FileText } from 'lucide-react'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
 export default function HealthHubPage() {
@@ -73,12 +74,7 @@ export default function HealthHubPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-96" />
-      </div>
-    )
+    return <LoadingSpinner fullPage text="Loading health records..." />
   }
 
   const recordCount = filteredRecords.length
@@ -212,23 +208,19 @@ export default function HealthHubPage() {
           onDelete={handleDelete}
         />
       ) : (
-        <Card className="p-12 text-center">
-          <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <Search className="h-12 w-12 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No records found
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {records && records.length > 0
-              ? 'Try adjusting your filters or search query'
-              : 'Get started by adding your first health record!'}
-          </p>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Health Record
-          </Button>
-        </Card>
+        <EmptyState
+          icon={records && records.length > 0 ? Search : FileText}
+          title={records && records.length > 0 ? "No records found" : "No health records yet"}
+          description={
+            records && records.length > 0
+              ? "Try adjusting your filters or search query"
+              : "Get started by adding your first health record!"
+          }
+          action={{
+            label: "Add Health Record",
+            onClick: () => setAddDialogOpen(true)
+          }}
+        />
       )}
 
       {/* Dialogs */}

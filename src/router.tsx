@@ -19,6 +19,7 @@ const SuppliesPage = lazy(() => import('@/pages/supplies/SuppliesPage'))
 const ShopPage = lazy(() => import('@/pages/shop/ShopPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const NotificationPreferencesPage = lazy(() => import('@/pages/settings/NotificationPreferencesPage'))
+const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage'))
 
 // Root route
 const rootRoute = createRootRoute()
@@ -218,6 +219,20 @@ const notificationPreferencesRoute = createRoute({
   ),
 })
 
+const dataExportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/export',
+  component: () => (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <ProtectedRoute>
+        <AppLayout>
+          <DataExportPage />
+        </AppLayout>
+      </ProtectedRoute>
+    </Suspense>
+  ),
+})
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -235,6 +250,7 @@ const routeTree = rootRoute.addChildren([
   shopRoute,
   settingsRoute,
   notificationPreferencesRoute,
+  dataExportRoute,
 ])
 
 // Create router instance

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { uploadPetPhoto } from '@/utils/upload-image'
 import { toast } from 'sonner'
+import { handleMutationError } from '@/utils/error-handler'
 import type { PetFormData } from '@/lib/validations/pet.schema'
 
 // Pet type definition
@@ -92,8 +93,7 @@ export function useCreatePet() {
       toast.success('Pet added successfully!')
     },
     onError: (error) => {
-      console.error('Error creating pet:', error)
-      toast.error('Failed to add pet. Please try again.')
+      handleMutationError(error, 'Failed to add pet. Please try again.')
     },
   })
 }
@@ -120,8 +120,7 @@ export function useUpdatePet() {
       toast.success('Pet updated successfully!')
     },
     onError: (error) => {
-      console.error('Error updating pet:', error)
-      toast.error('Failed to update pet')
+      handleMutationError(error, 'Failed to update pet')
     },
   })
 }
@@ -143,8 +142,7 @@ export function useDeletePet() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
     onError: (error) => {
-      console.error('Error deleting pet:', error)
-      toast.error('Failed to delete pet')
+      handleMutationError(error, 'Failed to delete pet')
     },
   })
 }

@@ -1,0 +1,49 @@
+import { cn } from '@/lib/utils'
+
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg'
+  fullPage?: boolean
+  text?: string
+  className?: string
+}
+
+export function LoadingSpinner({ 
+  size = 'md', 
+  fullPage = false, 
+  text,
+  className 
+}: LoadingSpinnerProps) {
+  const sizeClasses = {
+    sm: 'h-4 w-4 border-2',
+    md: 'h-8 w-8 border-2',
+    lg: 'h-12 w-12 border-3',
+  }
+
+  const spinner = (
+    <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
+      <div
+        className={cn(
+          'animate-spin rounded-full border-primary border-t-transparent',
+          sizeClasses[size]
+        )}
+        role="status"
+        aria-label="Loading"
+      />
+      {text && (
+        <p className="text-sm text-muted-foreground animate-pulse">
+          {text}
+        </p>
+      )}
+    </div>
+  )
+
+  if (fullPage) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        {spinner}
+      </div>
+    )
+  }
+
+  return spinner
+}

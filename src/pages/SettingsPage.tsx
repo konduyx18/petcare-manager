@@ -1,9 +1,12 @@
 import { PushNotificationTest } from '@/components/settings/PushNotificationTest'
-import { Link } from '@tanstack/react-router'
-import { Bell, Settings2 } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Bell, Settings2, Download, Shield } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
+
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-2">Settings</h1>
@@ -32,6 +35,28 @@ export default function SettingsPage() {
               <Bell className="h-4 w-4" />
               Manage Notification Preferences
             </Link>
+          </CardContent>
+        </Card>
+
+        {/* Privacy & Data Export */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Privacy & Data
+            </CardTitle>
+            <CardDescription>
+              Export or manage your personal data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => navigate({ to: '/settings/export' })}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export My Data
+            </Button>
           </CardContent>
         </Card>
       </div>
