@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Home, PawPrint, HeartPulse, ShoppingCart, Store, Settings } from 'lucide-react'
+import { Home, PawPrint, HeartPulse, ShoppingCart, Store, Settings, Shield } from 'lucide-react'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -13,6 +14,7 @@ const navItems = [
 export function Sidebar() {
   const router = useRouterState()
   const currentPath = router.location.pathname
+  const { data: isAdmin } = useIsAdmin()
 
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:overflow-y-auto lg:bg-white lg:border-r lg:border-gray-200">
@@ -48,6 +50,28 @@ export function Sidebar() {
               </Link>
             )
           })}
+
+          {/* Admin Link - Only visible to admins */}
+          {isAdmin && (
+            <>
+              <div className="my-2 border-t border-gray-200" />
+              <Link
+                to="/admin"
+                className={`
+                  flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium
+                  transition-colors duration-200
+                  ${
+                    currentPath === '/admin' || currentPath.startsWith('/admin/')
+                      ? 'bg-green-50 text-green-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }
+                `}
+              >
+                <Shield className="h-5 w-5 flex-shrink-0" />
+                <span>Admin</span>
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </aside>

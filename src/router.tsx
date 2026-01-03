@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createRouter, createRoute, createRootRoute, redirect } from '@tanstack/react-router'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { AdminRoute } from '@/components/auth/AdminRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RouteLoadingFallback } from '@/components/ui/RouteLoadingFallback'
 
@@ -20,6 +21,8 @@ const ShopPage = lazy(() => import('@/pages/shop/ShopPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const NotificationPreferencesPage = lazy(() => import('@/pages/settings/NotificationPreferencesPage'))
 const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage'))
+const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
+const AffiliateProductsManager = lazy(() => import('@/pages/admin/AffiliateProductsManager'))
 
 // Root route
 const rootRoute = createRootRoute()
@@ -233,6 +236,38 @@ const dataExportRoute = createRoute({
   ),
 })
 
+const adminDashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin',
+  component: () => (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <ProtectedRoute>
+        <AdminRoute>
+          <AppLayout>
+            <AdminDashboard />
+          </AppLayout>
+        </AdminRoute>
+      </ProtectedRoute>
+    </Suspense>
+  ),
+})
+
+const adminProductsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/products',
+  component: () => (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <ProtectedRoute>
+        <AdminRoute>
+          <AppLayout>
+            <AffiliateProductsManager />
+          </AppLayout>
+        </AdminRoute>
+      </ProtectedRoute>
+    </Suspense>
+  ),
+})
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -251,6 +286,8 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
   notificationPreferencesRoute,
   dataExportRoute,
+  adminDashboardRoute,
+  adminProductsRoute,
 ])
 
 // Create router instance
