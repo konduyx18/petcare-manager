@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Store, Package, Search, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import { useAffiliateProducts, useFeaturedProducts } from '@/hooks/useAffiliateP
 import ProductCard from '@/components/shop/ProductCard'
 import RecommendedProducts from '@/components/shop/RecommendedProducts'
 import type { ProductFilters } from '@/types/affiliate'
+import { useSearch } from '@tanstack/react-router'
 
 const categories = [
   'All Categories',
@@ -33,6 +34,11 @@ export default function ShopPage() {
     petType: 'all',
     search: '',
   })
+
+  // Get search params for product highlighting
+  const search = useSearch({ from: '/shop' })
+  const highlightProductId = (search as any)?.product
+  const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
   const { data: featuredProducts, isLoading: featuredLoading } = useFeaturedProducts()
   const { data: products, isLoading: productsLoading } = useAffiliateProducts(filters)
@@ -58,6 +64,57 @@ export default function ShopPage() {
   }, [filters])
 
   const isLoading = productsLoading || featuredLoading
+
+  // Auto-scroll and highlight product when coming from supply link
+  useEffect(() => {
+    // Don't run if products aren't loaded yet
+    if (!products || products.length === 0) {
+      console.log('⏳ Waiting for products to load...')
+      return
+    }
+    
+    // Don't run if no highlight requested
+    if (!highlightProductId) {
+      console.log('ℹ️ No product to highlight')
+      return
+    }
+    
+    console.log('🔍 DEBUG: highlightProductId =', highlightProductId)
+    console.log('🔍 DEBUG: products loaded =', products.length)
+    console.log('🔍 DEBUG: productRefs.current =', productRefs.current)
+    console.log('🔍 DEBUG: Looking for ref:', highlightProductId)
+    
+    // Small delay to ensure refs are set after render
+    setTimeout(() => {
+      if (highlightProductId && productRefs.current[highlightProductId]) {
+        const element = productRefs.current[highlightProductId]
+        console.log('🔍 DEBUG: Found element to highlight:', element)
+        
+        // Scroll to product
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        })
+        console.log('✅ Scrolled to element')
+        
+        // Add highlight animation
+        element.classList.add('ring-4', 'ring-blue-500', 'ring-offset-2', 'animate-pulse')
+        console.log('✅ Added classes: ring-4, ring-blue-500, ring-offset-2, animate-pulse')
+        console.log('🔍 DEBUG: Element classes after adding:', element.className)
+        
+        // Remove highlight after 3 seconds
+        setTimeout(() => {
+          element.classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2', 'animate-pulse')
+          console.log('✅ Removed highlight classes after 3 seconds')
+        }, 3000)
+      } else {
+        console.log('❌ DEBUG: Element NOT found for highlighting')
+        console.log('   - highlightProductId exists?', !!highlightProductId)
+        console.log('   - Ref exists for this product?', !!productRefs.current[highlightProductId])
+        console.log('   - All available refs:', Object.keys(productRefs.current))
+      }
+    }, 100) // Wait 100ms for refs to be set
+  }, [highlightProductId, products])
 
   return (
     <div className="space-y-8 pb-8">
@@ -229,7 +286,15 @@ export default function ShopPage() {
         ) : products && products.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div 
+                key={product.id}
+                ref={(el) => { 
+                  productRefs.current[product.id] = el 
+                  console.log('🔍 DEBUG: Set ref for product:', product.id, product.name)
+                }}
+              >
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
         ) : (

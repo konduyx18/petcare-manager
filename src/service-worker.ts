@@ -23,8 +23,8 @@ self.addEventListener('push', (event: PushEvent) => {
 
     const notificationOptions: NotificationOptions = {
       body: data.body || 'You have a new notification from PetCare Manager',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/vite.svg',
+      badge: '/vite.svg',
       data: data.data || {},
       requireInteraction: false,
       tag: data.tag || 'petcare-notification'

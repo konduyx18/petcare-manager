@@ -23,6 +23,8 @@ const NotificationPreferencesPage = lazy(() => import('@/pages/settings/Notifica
 const DataExportPage = lazy(() => import('@/pages/settings/DataExportPage'))
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
 const AffiliateProductsManager = lazy(() => import('@/pages/admin/AffiliateProductsManager'))
+const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
+const TermsOfServicePage = lazy(() => import('@/pages/legal/TermsOfServicePage'))
 
 // Root route
 const rootRoute = createRootRoute()
@@ -268,6 +270,30 @@ const adminProductsRoute = createRoute({
   ),
 })
 
+const privacyPolicyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/legal/privacy',
+  component: () => (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <AppLayout>
+        <PrivacyPolicyPage />
+      </AppLayout>
+    </Suspense>
+  ),
+})
+
+const termsOfServiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/legal/terms',
+  component: () => (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <AppLayout>
+        <TermsOfServicePage />
+      </AppLayout>
+    </Suspense>
+  ),
+})
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -288,6 +314,8 @@ const routeTree = rootRoute.addChildren([
   dataExportRoute,
   adminDashboardRoute,
   adminProductsRoute,
+  privacyPolicyRoute,
+  termsOfServiceRoute,
 ])
 
 // Create router instance

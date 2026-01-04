@@ -25,17 +25,15 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        // TODO: Replace with custom pet-themed PNG icons later:
+        //   - public/icon-192.png (192x192 pixels)
+        //   - public/icon-512.png (512x512 pixels)
+        // TEMPORARY: Use vite.svg until we create proper PNG icons
         icons: [
           {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
+            src: '/vite.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
           },
         ],
       },

@@ -34,6 +34,9 @@ import {
 } from '@/utils/supply-utils'
 import { format } from 'date-fns'
 import SupplyForm from '@/components/supplies/SupplyForm'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { Link } from '@tanstack/react-router'
 
 interface SupplyCardProps {
   supply: Omit<SupplySchedule, 'updated_at'> & {
@@ -55,6 +58,24 @@ export default function SupplyCard({ supply, onEdit, onDelete }: SupplyCardProps
   const markAsOrdered = useMarkAsOrdered()
   const deleteSupply = useDeleteSupply()
   const trackClick = useTrackAffiliateClick()
+
+  // Fetch linked product if product_id exists
+  const { data: linkedProduct } = useQuery<any>({
+    queryKey: ['affiliate-product', supply.product_id],
+    queryFn: async () => {
+      if (!supply.product_id) return null
+      
+      const { data, error } = await supabase
+        .from('affiliate_products')
+        .select('*')
+        .eq('id', supply.product_id)
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    enabled: !!supply.product_id,
+  })
 
   const handleMarkAsOrdered = () => {
     markAsOrdered.mutate({
@@ -218,6 +239,20 @@ export default function SupplyCard({ supply, onEdit, onDelete }: SupplyCardProps
                     Petco
                   </Button>
                 )}
+              </div>
+            )}
+
+            {/* Linked Product - Buy This Product Button */}
+            {linkedProduct && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <Link 
+                  to="/shop"
+                  search={{ product: linkedProduct.id }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Buy {linkedProduct.name} on Shop
+                </Link>
               </div>
             )}
 

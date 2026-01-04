@@ -13,6 +13,7 @@ export interface SupplySchedule {
   id: string
   user_id: string
   pet_id: string
+  product_id?: string | null
   product_name: string
   category: 'Food' | 'Medicine' | 'Treats' | 'Toys' | 'Grooming' | 'Other'
   frequency_days: number
@@ -280,10 +281,39 @@ export function useDeleteSupply() {
 }
 
 /**
+ * Check for conversion tracking (if user clicked affiliate link in last 7 days)
+ */
+async function checkConversion(supplyId: string, userId: string) {
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  
+  // Check if user clicked affiliate link in last 7 days for this supply
+  const { data: recentClicks } = await supabase
+    .from('affiliate_clicks')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('supply_schedule_id', supplyId)
+    .gte('clicked_at', sevenDaysAgo.toISOString())
+    .limit(1)
+  
+  if (recentClicks && recentClicks.length > 0) {
+    console.log('✅ Conversion tracked:', recentClicks[0])
+    
+    // Optional: Update affiliate_clicks table with conversion flag
+    const clickRecord = recentClicks[0] as any
+    await (supabase
+      .from('affiliate_clicks') as any)
+      .update({ converted: true })
+      .eq('id', clickRecord.id)
+  }
+}
+
+/**
  * Mark a supply as ordered (updates last purchase date to today)
  */
 export function useMarkAsOrdered() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
 
   return useMutation({
     mutationFn: async ({ 
@@ -309,9 +339,9 @@ export function useMarkAsOrdered() {
         .single()
 
       if (error) throw error
-      return { ...(data as any), product_name }
+      return { ...(data as any), product_name, supply_id: id }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['supply-schedules'] })
       queryClient.invalidateQueries({ queryKey: ['recommended-products'] })
       const formattedDate = new Date(data.next_reminder_date).toLocaleDateString('en-US', {
@@ -320,6 +350,11 @@ export function useMarkAsOrdered() {
         year: 'numeric'
       })
       toast.success(`✅ Marked as ordered! Next reminder: ${formattedDate}`)
+      
+      // Track conversion if applicable
+      if (user?.id && data.supply_id) {
+        await checkConversion(data.supply_id, user.id)
+      }
     },
     onError: (error: Error) => {
       console.error('Error marking as ordered:', error)

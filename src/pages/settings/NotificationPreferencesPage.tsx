@@ -40,8 +40,8 @@ export default function NotificationPreferencesPage() {
       // IMPORTANT: Use registration.showNotification() not new Notification()
       await registration.showNotification('🐾 Test Notification', {
         body: 'This is a test notification from PetCare Manager! Click me to open the app.',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: '/vite.svg',
+        badge: '/vite.svg',
         tag: 'test-notification',
         requireInteraction: false,
         data: {

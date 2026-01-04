@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
+import { Footer } from './Footer'
 import { UserMenu } from './UserMenu'
 import { Button } from '@/components/ui/button'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
@@ -56,11 +57,14 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="mb-16 lg:mb-0 p-4 md:p-6 lg:p-8">
+        <main className="flex-1 mb-16 lg:mb-0 p-4 md:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>
         </main>
+
+        {/* Footer */}
+        <Footer />
       </div>
 
       {/* Mobile Bottom Navigation */}
