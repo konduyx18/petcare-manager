@@ -3,7 +3,7 @@ import { PetForm } from './PetForm'
 import { useUpdatePet } from '@/hooks/usePets'
 import { toast } from 'sonner'
 import { PawPrint, Sparkles } from 'lucide-react'
-import { uploadPetPhoto } from '@/utils/upload-image'
+import { uploadPetPhoto, deletePetPhotos } from '@/utils/upload-image'
 import type { PetFormData } from '@/lib/validations/pet.schema'
 
 interface Pet {
@@ -16,6 +16,7 @@ interface Pet {
   weight_lbs: number | null
   microchip_number: string | null
   photo_url: string | null
+  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }
@@ -33,13 +34,22 @@ export function EditPetDialog({ open, onOpenChange, pet }: EditPetDialogProps) {
     try {
       // If new photo provided, upload it
       let photoUrl = pet.photo_url
+      let thumbnailUrl = pet.thumbnail_url
       if (photo) {
-        photoUrl = await uploadPetPhoto(photo, pet.user_id, pet.id)
+        // Delete old photos first
+        if (pet.photo_url) {
+          await deletePetPhotos(pet.photo_url, pet.thumbnail_url || undefined)
+        }
+        
+        // Upload new photos
+        const uploadResult = await uploadPetPhoto(photo, pet.user_id, pet.id)
+        photoUrl = uploadResult.full
+        thumbnailUrl = uploadResult.thumbnail
       }
 
       await updatePet.mutateAsync({
         id: pet.id,
-        updates: { ...data, photo_url: photoUrl }
+        updates: { ...data, photo_url: photoUrl, thumbnail_url: thumbnailUrl }
       })
 
       toast.success('🎉 Pet updated successfully!', {

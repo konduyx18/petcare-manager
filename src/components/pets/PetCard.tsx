@@ -17,6 +17,7 @@ interface Pet {
   weight_lbs: number | null
   microchip_number: string | null
   photo_url: string | null
+  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }
@@ -59,11 +60,12 @@ export function PetCard({ pet }: PetCardProps) {
       >
         {/* Pet Photo */}
         <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-          {pet.photo_url ? (
+          {(pet.thumbnail_url || pet.photo_url) ? (
             <img
-              src={pet.photo_url}
+              src={pet.thumbnail_url || pet.photo_url || ''}
               alt={pet.name}
               className="h-full w-full object-cover"
+              loading="lazy"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">

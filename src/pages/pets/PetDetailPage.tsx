@@ -9,13 +9,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EditPetDialog } from '@/components/pets/EditPetDialog'
 import { DeletePetDialog } from '@/components/pets/DeletePetDialog'
 import { PetOverview } from '@/components/pets/PetOverview'
+import { PetStats } from '@/components/pets/PetStats'
 import { AddHealthRecordDialog } from '@/components/health/AddHealthRecordDialog'
 import { EditHealthRecordDialog } from '@/components/health/EditHealthRecordDialog'
 import { DeleteHealthRecordDialog } from '@/components/health/DeleteHealthRecordDialog'
 import { HealthTimeline } from '@/components/health/HealthTimeline'
 import { useHealthRecords } from '@/hooks/useHealthRecords'
 import { ArrowLeft, Edit, Trash2, Calendar, Heart, Package, Plus } from 'lucide-react'
-import { calculateAge, getSpeciesBadgeColor, getSpeciesEmoji } from '@/utils/pet-utils'
+import { calculateAge, getSpeciesBadgeColor, getSpeciesEmoji, getLastVetVisit, getHealthRecordCount } from '@/utils/pet-utils'
 import type { HealthRecord } from '@/hooks/useHealthRecords'
 
 export default function PetDetailPage() {
@@ -178,7 +179,20 @@ export default function PetDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
-          <PetOverview pet={pet} />
+          <div className="space-y-6">
+            {/* Pet Stats with Charts */}
+            <PetStats
+              age={pet.date_of_birth ? calculateAge(pet.date_of_birth) : undefined}
+              lastVetVisit={healthRecords && healthRecords.length > 0 ? getLastVetVisit(healthRecords) : 'Never'}
+              healthRecordsCount={healthRecords?.length || 0}
+              activeSuppliesCount={stats.activeSuppliesCount}
+              upcomingRemindersCount={stats.upcomingRemindersCount}
+              healthRecordsByType={healthRecords ? getHealthRecordCount(healthRecords) : undefined}
+            />
+            
+            {/* Pet Overview Details */}
+            <PetOverview pet={pet} />
+          </div>
         </TabsContent>
 
         <TabsContent value="health" className="mt-6">

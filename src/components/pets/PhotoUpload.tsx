@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -9,32 +10,42 @@ interface PhotoUploadProps {
   onChange: (file: File | null) => void
   error?: string
   existingPhotoUrl?: string
+  onProgressChange?: (progress: number) => void
 }
 
-export function PhotoUpload({ onChange, error, existingPhotoUrl }: PhotoUploadProps) {
+export function PhotoUpload({ onChange, error, existingPhotoUrl, onProgressChange }: PhotoUploadProps) {
   const [preview, setPreview] = useState<string | null>(existingPhotoUrl || null)
   const [isDragging, setIsDragging] = useState(false)
+  const [progress, setProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const updateProgress = (value: number) => {
+    setProgress(value)
+    onProgressChange?.(value)
+  }
 
   const handleFile = useCallback((file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file (JPEG, PNG, or WEBP)')
+      toast.error('Please select an image file (JPEG, PNG, or WebP)')
       return
     }
 
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB')
+    // Validate file size - allow larger files since we compress them
+    const maxSizeMB = 20
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      toast.error(`Image size must be less than ${maxSizeMB}MB. Please choose a smaller image.`)
       return
     }
 
+    updateProgress(10)
     onChange(file)
 
     // Create preview
     const reader = new FileReader()
     reader.onloadend = () => {
       setPreview(reader.result as string)
+      updateProgress(0)
     }
     reader.readAsDataURL(file)
   }, [onChange])
@@ -69,6 +80,7 @@ export function PhotoUpload({ onChange, error, existingPhotoUrl }: PhotoUploadPr
   const handleRemove = useCallback(() => {
     onChange(null)
     setPreview(null)
+    updateProgress(0)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -82,21 +94,31 @@ export function PhotoUpload({ onChange, error, existingPhotoUrl }: PhotoUploadPr
     <div className="space-y-2">
       {preview ? (
         // Preview with remove button
-        <div className="relative">
-          <img
-            src={preview}
-            alt="Pet preview"
-            className="w-full h-64 object-cover rounded-xl shadow-lg"
-          />
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={handleRemove}
-            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full shadow-lg"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="space-y-3">
+          <div className="relative">
+            <img
+              src={preview}
+              alt="Pet preview"
+              className="w-full h-64 object-cover rounded-xl shadow-lg"
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={handleRemove}
+              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full shadow-lg"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {progress > 0 && progress < 100 && (
+            <div className="space-y-2">
+              <Progress value={progress} className="w-full" />
+              <p className="text-sm text-gray-600 text-center">
+                {progress < 50 ? 'Compressing image...' : progress < 75 ? 'Creating thumbnail...' : 'Uploading...'}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         // Drag & drop zone
@@ -125,7 +147,7 @@ export function PhotoUpload({ onChange, error, existingPhotoUrl }: PhotoUploadPr
                 or click to browse
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                JPEG, PNG, or WEBP • Max 5MB
+                JPEG, PNG, or WEBP • Max 20MB (will be compressed)
               </p>
             </div>
           </div>

@@ -13,82 +13,49 @@ export default function NotificationPreferencesPage() {
   const { preferences, isLoading, updatePreferences, isUpdating } = useNotificationPreferences()
 
   const handleSendTestNotification = async () => {
-    console.log('🔔 Test Notification button clicked')
+    console.log('🧪 Test notification button clicked')
     
     try {
       // Check if Notification API is supported
       if (!('Notification' in window)) {
-        console.error('❌ Notification API not supported')
-        toast.error('Notifications not supported in this browser')
+        toast.error('Your browser does not support notifications')
         return
       }
       
-      console.log('✅ Notification API supported')
-      console.log('📋 Current permission:', Notification.permission)
-      
-      // Check permission
-      if (Notification.permission === 'granted') {
-        console.log('✅ Permission granted, creating notification...')
-        
-        // Create notification
-        const notification = new Notification('Test Notification from PetCare', {
-          body: 'This is what your reminders will look like!',
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
-          tag: 'test-notification',
-        })
-        
-        console.log('✅ Notification created successfully')
-        
-        // Add click handler
-        notification.onclick = () => {
-          console.log('🖱️ Notification clicked')
-          window.focus()
-          notification.close()
-        }
-        
-        // Show success toast
-        toast.success('Test notification sent!', {
-          description: 'Check your notifications',
-        })
-      } else if (Notification.permission === 'denied') {
-        console.error('❌ Notification permission denied')
-        toast.error('Notification permission denied', {
-          description: 'Please enable notifications in your browser settings',
-        })
-      } else {
-        // Permission is 'default' - need to request
-        console.log('⚠️ Permission not granted, requesting...')
-        const permission = await Notification.requestPermission()
-        console.log('📋 New permission:', permission)
-        
-        if (permission === 'granted') {
-          // Retry sending notification
-          const notification = new Notification('Test Notification from PetCare', {
-            body: 'This is what your reminders will look like!',
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
-          })
-          
-          // Add click handler
-          notification.onclick = () => {
-            console.log('🖱️ Notification clicked')
-            window.focus()
-            notification.close()
-          }
-          
-          console.log('✅ Notification created after permission grant')
-          toast.success('Test notification sent!')
-        } else {
-          console.error('❌ Permission request denied')
-          toast.error('Permission denied')
-        }
+      // Check current permission
+      if (Notification.permission !== 'granted') {
+        toast.error('Please enable notifications first')
+        return
       }
-    } catch (error) {
-      console.error('❌ Error sending test notification:', error)
-      toast.error('Failed to send test notification', {
-        description: error instanceof Error ? error.message : 'Unknown error',
+      
+      // Check if service worker is ready
+      if (!('serviceWorker' in navigator)) {
+        toast.error('Service workers are not supported')
+        return
+      }
+      
+      const registration = await navigator.serviceWorker.ready
+      console.log('✅ Service worker is ready')
+      
+      // IMPORTANT: Use registration.showNotification() not new Notification()
+      await registration.showNotification('🐾 Test Notification', {
+        body: 'This is a test notification from PetCare Manager! Click me to open the app.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'test-notification',
+        requireInteraction: false,
+        data: {
+          url: '/pets',
+          dateOfArrival: Date.now(),
+          primaryKey: 1
+        }
       })
+      
+      toast.success('✅ Test notification sent! Click it to test navigation.')
+      console.log('✅ Test notification sent successfully')
+    } catch (error) {
+      console.error('❌ Test notification failed:', error)
+      toast.error('Failed to send test notification: ' + (error as Error).message)
     }
   }
 

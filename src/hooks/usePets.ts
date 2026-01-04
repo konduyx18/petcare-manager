@@ -16,6 +16,7 @@ interface Pet {
   weight_lbs: number | null
   microchip_number: string | null
   photo_url: string | null
+  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }
@@ -72,20 +73,26 @@ export function useCreatePet() {
 
       // Upload photo if provided
       let photoUrl = null
+      let thumbnailUrl = null
       if (photo) {
-        photoUrl = await uploadPetPhoto(photo, user.id, pet.id)
+        const uploadResult = await uploadPetPhoto(photo, user.id, pet.id)
+        photoUrl = uploadResult.full
+        thumbnailUrl = uploadResult.thumbnail
         
-        // Update pet with photo URL
+        // Update pet with both photo URLs
         const { error: updateError } = await supabase
           .from('pets')
           // @ts-ignore - Supabase types not generated yet, update will work at runtime
-          .update({ photo_url: photoUrl })
+          .update({ 
+            photo_url: photoUrl,
+            thumbnail_url: thumbnailUrl 
+          })
           .eq('id', pet.id)
 
         if (updateError) throw updateError
       }
 
-      return { ...pet, photo_url: photoUrl } as Pet
+      return { ...pet, photo_url: photoUrl, thumbnail_url: thumbnailUrl } as Pet
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pets'] })

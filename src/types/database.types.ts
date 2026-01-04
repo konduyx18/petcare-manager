@@ -21,6 +21,7 @@ export interface Pet {
   weight_lbs: number | null
   microchip_number: string | null
   photo_url: string | null
+  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }

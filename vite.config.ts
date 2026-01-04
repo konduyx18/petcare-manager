@@ -9,21 +9,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 5 * 60,
-              },
-            },
-          },
-        ],
-      },
+      
+      // Use custom service worker with push handling
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
+      
+      // Manifest configuration
       manifest: {
         name: 'PetCare Manager',
         short_name: 'PetCare',
@@ -31,19 +23,35 @@ export default defineConfig({
         theme_color: '#10b981',
         background_color: '#ffffff',
         display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: '/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any maskable'
           },
         ],
       },
+      
+      // Workbox configuration for caching
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['**/node_modules/**/*', '**/sw.js', '**/workbox-*.js']
+      },
+      
+      // Enable in development for testing
+      devOptions: {
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html'
+      }
     }),
   ],
   resolve: {
