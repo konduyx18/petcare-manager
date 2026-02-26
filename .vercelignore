@@ -1,0 +1,43 @@
+# Vercel ignore file
+# Prevents unnecessary files from being deployed
+
+# Development files
+.env.local
+.env.development
+*.log
+.DS_Store
+Thumbs.db
+
+# Source maps (optional - comment out if you want source maps in production)
+# *.map
+
+# Documentation
+*.md
+docs/
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node modules (should be in dependencies)
+node_modules/
+
+# Build artifacts that shouldn't be deployed
+dist/
+build/
+
+# Git
+.git/
+.gitignore
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

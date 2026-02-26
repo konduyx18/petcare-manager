@@ -65,6 +65,16 @@ export default function ShopPage() {
 
   const isLoading = productsLoading || featuredLoading
 
+  // Debug: Log filter changes
+  useEffect(() => {
+    console.log('🔍 Shop Filters Changed:', {
+      petType: filters.petType,
+      category: filters.category,
+      search: filters.search,
+      productsCount: products?.length || 0
+    })
+  }, [filters, products])
+
   // Auto-scroll and highlight product when coming from supply link
   useEffect(() => {
     // Don't run if products aren't loaded yet
@@ -133,6 +143,11 @@ export default function ShopPage() {
         {!isLoading && products && (
           <div className="mt-4 text-sm text-blue-100">
             {products.length} product{products.length !== 1 ? 's' : ''} available
+            {hasActiveFilters && (
+              <span className="ml-2">
+                (filtered)
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -167,6 +182,9 @@ export default function ShopPage() {
           )}
         </div>
       )}
+
+      {/* Recommended Products */}
+      <RecommendedProducts limit={6} source="shop_page" />
 
       {/* Filter Controls */}
       <Card className="p-6">
@@ -261,9 +279,6 @@ export default function ShopPage() {
           )}
         </div>
       </Card>
-
-      {/* Recommended Products */}
-      <RecommendedProducts limit={6} source="shop_page" />
 
       {/* Products Grid */}
       <div>

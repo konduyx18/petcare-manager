@@ -10,22 +10,29 @@ export function useAffiliateProducts(filters?: Partial<ProductFilters>) {
   return useQuery({
     queryKey: ['affiliate-products', filters],
     queryFn: async () => {
+      console.log('🔍 Building query with filters:', filters)
+      
       let query = supabase
         .from('affiliate_products')
         .select('*')
 
-      // Apply category filter
+      // Apply category filter FIRST
       if (filters?.category && filters.category !== 'All Categories') {
+        console.log('📦 Applying category filter:', filters.category)
         query = query.eq('category', filters.category)
       }
 
-      // Apply pet type filter
+      // Apply pet type filter SECOND
+      // This creates an OR condition within the pet_type field
+      // but it's still combined with AND logic with the category filter above
       if (filters?.petType && filters.petType !== 'all') {
-        query = query.or(`pet_type.eq.${filters.petType},pet_type.eq.both`)
+        console.log('🐾 Applying pet type filter:', filters.petType)
+        query = query.or(`pet_type.eq.${filters.petType},pet_type.eq.both,pet_type.is.null`)
       }
 
       // Apply search filter
       if (filters?.search && filters.search.trim()) {
+        console.log('🔍 Applying search filter:', filters.search)
         query = query.ilike('name', `%${filters.search}%`)
       }
 
@@ -36,7 +43,12 @@ export function useAffiliateProducts(filters?: Partial<ProductFilters>) {
 
       const { data, error } = await query
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Query error:', error)
+        throw error
+      }
+      
+      console.log('✅ Products fetched:', data?.length)
       return (data || []) as AffiliateProduct[]
     },
   })

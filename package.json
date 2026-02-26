@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "generate-vapid": "tsx src/scripts/generate-vapid-keys.ts"
+    "generate-vapid": "tsx src/scripts/generate-vapid-keys.ts",
+    "deploy:prod": "vercel --prod",
+    "deploy:preview": "vercel",
+    "build:check": "npm run build && npm run preview"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",

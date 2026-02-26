@@ -25,6 +25,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        scope: '/',
         // TODO: Replace with custom pet-themed PNG icons later:
         //   - public/icon-192.png (192x192 pixels)
         //   - public/icon-512.png (512x512 pixels)
@@ -56,5 +57,55 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  
+  // Base configuration for production deployment
+  base: process.env.NODE_ENV === 'production' ? '/' : '/',
+  
+  // Build optimizations
+  build: {
+    // Enable source maps for debugging in production
+    sourcemap: true,
+    
+    // Minification options
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true, // Remove debugger statements
+      },
+    },
+    
+    // Chunk splitting for better performance
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor libraries
+          vendor: ['react', 'react-dom'],
+          router: ['@tanstack/react-router'],
+          query: ['@tanstack/react-query'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          utils: ['date-fns', 'recharts', 'react-big-calendar'],
+        },
+      },
+    },
+    
+    // Asset optimization
+    assetsInlineLimit: 4096, // Inline assets smaller than 4KB
+    
+    // Chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+  },
+  
+  // Server configuration
+  server: {
+    port: 5173,
+    host: true,
+  },
+  
+  // Preview server configuration
+  preview: {
+    port: 4173,
+    host: true,
   },
 })
