@@ -124,9 +124,6 @@ export function logDeploymentCheckResults(): void {
  */
 export function validateBuildConfig(): boolean {
   try {
-    // Check if we can access the manifest
-    const manifestUrl = '/manifest.json'
-    
     // Check service worker registration
     if ('serviceWorker' in navigator) {
       console.log('✅ Service Worker API available')
