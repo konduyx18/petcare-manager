@@ -1,37 +1,35 @@
 # Vercel ignore file
 # Prevents unnecessary files from being deployed
 
+# Supabase Edge Functions (deployed separately to Supabase, not Vercel)
+supabase/
+
+# Dependencies
+node_modules/
+
 # Development files
 .env.local
 .env.development
+.env*.local
+
+# Build outputs (Vercel builds fresh)
+dist/
+build/
+
+# Logs
 *.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Source maps (optional - comment out if you want source maps in production)
-# *.map
-
-# Documentation
-*.md
-docs/
-
 # Testing
 coverage/
-.nyc_output/
-test-results/
-
-# Development tools
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Node modules (should be in dependencies)
-node_modules/
-
-# Build artifacts that shouldn't be deployed
-dist/
-build/
 
 # Git
 .git/
@@ -41,3 +39,10 @@ build/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Documentation (optional - uncomment if you want to exclude docs)
+# *.md
+# docs/
+
+# Source maps (optional - uncomment if you want to exclude source maps)
+# *.map
